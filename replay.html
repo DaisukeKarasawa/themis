@@ -669,28 +669,42 @@ const SOP_ASSETS = [
     ]
   },
   {
-    id: "inventory_check",
-    label: "棚卸し確認",
-    description: "棚にある備品を順番に確認し、記録まで完了しているかを点検します。",
-    sop: { id: "inventory_check", name: "棚卸し確認" },
+    id: "desk_cleanup_check",
+    label: "デスク片付けチェック",
+    description: "デスク上のゴミや持ち物が、指定された場所に片付けられているかを確認します。",
+    sop: { id: "desk_cleanup_check", name: "デスク片付けチェック" },
     domain_hint:
-      "これは棚や作業台の前で備品を確認している動画の1フレームです。作業者の手元、棚のラベル、チェックシート、筆記具が見える可能性があります。",
+      "これはデスク上の片付け作業を上から撮った動画の1フレームです。デスク上には飲み物が残っているペットボトル、空に見えるペットボトル、紙コップ、2つのティッシュ、ガムの包み紙の銀紙、ハンカチが見える可能性があります。左右は画像を見る人から見た左右で判断します。",
     questions: [
-      { id: "label_checked", ask: "作業者が棚や容器のラベルを確認しているか", values: ["yes", "no"] },
-      { id: "item_counted", ask: "作業者が対象の備品を数えているか", values: ["yes", "no"] },
-      { id: "sheet_updated", ask: "作業者が確認結果をチェックシートに記録しているか", values: ["yes", "no"] },
-      { id: "item_returned", ask: "作業者が備品を元の位置に戻しているか", values: ["yes", "no"] }
+      { id: "cleanup_trash_action", ask: "作業者の手が、ティッシュまたはガムの包み紙の銀紙を紙コップの中へ入れている最中か", values: ["yes", "no"] },
+      { id: "fold_handkerchief_action", ask: "作業者の手が、ハンカチを四角く折り畳んでいる最中か", values: ["yes", "no"] },
+      { id: "move_empty_bottle_right_action", ask: "作業者の手が、空に見えるペットボトルをデスクの右側へ移動している最中か", values: ["yes", "no"] },
+      { id: "move_filled_bottle_left_action", ask: "作業者の手が、飲み物が残っているペットボトルをデスクの左側へ移動している最中か", values: ["yes", "no"] },
+      { id: "tissues_in_cup", ask: "デスク上にある2つのティッシュが、どちらも紙コップの中に入っているか", values: ["yes", "no"] },
+      { id: "filled_bottle_left", ask: "飲み物が残っているペットボトルが、デスクの左側に置かれているか", values: ["yes", "no"] },
+      { id: "empty_bottle_right", ask: "飲み物が残っていない、または空に見えるペットボトルが、デスクの右側に置かれているか", values: ["yes", "no"] },
+      { id: "handkerchief_folded", ask: "ハンカチが四角く折り畳まれているか", values: ["yes", "no"] },
+      { id: "handkerchief_right", ask: "折り畳まれたハンカチが、デスクの右側に置かれているか", values: ["yes", "no"] },
+      { id: "trash_in_cup", ask: "ガムの包み紙の銀紙や使用済みティッシュなどのゴミが、すべて紙コップの中に入っているか", values: ["yes", "no"] },
+      { id: "cleared_items_right", ask: "飲み物が残っているペットボトル以外の対象物（空に見えるペットボトル、ハンカチ、紙コップ）が、いずれもデスクの右側に置かれているか", values: ["yes", "no"] }
     ],
     relations: [
-      "label_checked before item_counted",
-      "item_counted before sheet_updated",
-      "sheet_updated before item_returned"
+      "cleanup_trash_action before fold_handkerchief_action",
+      "fold_handkerchief_action before move_empty_bottle_right_action",
+      "move_empty_bottle_right_action before move_filled_bottle_left_action"
     ],
     eventDefs: [
-      { name: "label_checked", evidence: "label_checked==yes", occurrence: 1 },
-      { name: "item_counted", evidence: "item_counted==yes", occurrence: 1 },
-      { name: "sheet_updated", evidence: "sheet_updated==yes", occurrence: 1 },
-      { name: "item_returned", evidence: "item_returned==yes", occurrence: 1 }
+      { name: "cleanup_trash_action", evidence: "cleanup_trash_action==yes", occurrence: 1 },
+      { name: "fold_handkerchief_action", evidence: "fold_handkerchief_action==yes", occurrence: 1 },
+      { name: "move_empty_bottle_right_action", evidence: "move_empty_bottle_right_action==yes", occurrence: 1 },
+      { name: "move_filled_bottle_left_action", evidence: "move_filled_bottle_left_action==yes", occurrence: 1 },
+      { name: "tissues_in_cup", evidence: "tissues_in_cup==yes", occurrence: 1 },
+      { name: "filled_bottle_left", evidence: "filled_bottle_left==yes", occurrence: 1 },
+      { name: "empty_bottle_right", evidence: "empty_bottle_right==yes", occurrence: 1 },
+      { name: "handkerchief_folded", evidence: "handkerchief_folded==yes", occurrence: 1 },
+      { name: "handkerchief_right", evidence: "handkerchief_right==yes", occurrence: 1 },
+      { name: "trash_in_cup", evidence: "trash_in_cup==yes", occurrence: 1 },
+      { name: "cleared_items_right", evidence: "cleared_items_right==yes", occurrence: 1 }
     ]
   },
   {
