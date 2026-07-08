@@ -1,0 +1,1730 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>動画SOPチェックデモ</title>
+<style>
+  :root {
+    --ok: #1a7f37;
+    --ok-bg: #e6f4ea;
+    --no: #6b7280;
+    --no-bg: #f1f2f4;
+    --unclear: #b45309;
+    --unclear-bg: #fef3e0;
+    --bad: #c0362c;
+    --bad-bg: #fbe9e7;
+    --line: #ddd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: #f7f7f5;
+    color: #1c1c1c;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; flex: 1; }
+  #backToSetupBtn { white-space: nowrap; }
+  .badge {
+    font-family: "SF Mono", Menlo, ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 6px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .badge.pass {
+    background: var(--ok-bg);
+    color: var(--ok);
+    border: 1px solid rgba(26, 127, 55, 0.22);
+  }
+  .badge.fail {
+    background: var(--bad-bg);
+    color: var(--bad);
+    border: 1px solid rgba(192, 54, 44, 0.22);
+  }
+  .badge.pending { background: var(--no-bg); color: var(--no); }
+  .badge[hidden] { display: none; }
+  #coverage { font-size: 13px; color: #666; white-space: nowrap; }
+
+  .panel {
+    max-width: 1180px;
+    margin: 20px auto;
+    padding: 0 20px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 14px;
+    margin: 0 0 12px;
+    color: #444;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  label { font-size: 13px; color: #555; }
+  input[type="text"], input[type="url"], input[type="number"], select {
+    font-size: 13px;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    min-width: 0;
+  }
+  input[type="file"] { font-size: 13px; }
+  .grow { flex: 1; min-width: 220px; }
+  button {
+    font-size: 13px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    background: #fff;
+    cursor: pointer;
+  }
+  button:hover { background: #f0f0f0; }
+  button.primary {
+    background: #1c1c1c;
+    color: #fff;
+    border-color: #1c1c1c;
+  }
+  button.primary:hover { background: #333; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    border-bottom: 1px solid var(--line);
+    padding: 8px 6px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { color: #666; font-weight: 600; }
+  td input[type="text"] { width: 100%; }
+  .table-actions { white-space: nowrap; }
+  .technical-row { display: none; }
+  .asset-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .asset-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    background: #fff;
+  }
+  .asset-card.active {
+    border-color: #1c1c1c;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.05) inset;
+  }
+  .asset-card h3 {
+    font-size: 14px;
+    margin: 0 0 6px;
+  }
+  .asset-card p {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #555;
+    margin: 0 0 10px;
+  }
+  .asset-meta {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 12px;
+  }
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .history-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+  }
+  .history-main {
+    flex: 1;
+    min-width: 0;
+  }
+  .history-title {
+    display: block;
+    font-size: 13px;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .history-meta {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: #888;
+  }
+  .history-empty {
+    font-size: 13px;
+    color: #888;
+    padding: 10px 12px;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  #progressWrap { display: none; margin-top: 10px; }
+  #progressWrap.active { display: block; }
+  #progressBar {
+    height: 8px;
+    background: var(--no-bg);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #progressFill {
+    height: 100%;
+    width: 0%;
+    background: var(--ok);
+    transition: width 0.2s;
+  }
+  #progressText { font-size: 12px; color: #666; margin-top: 6px; }
+  #errorBox {
+    display: none;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--bad-bg);
+    color: var(--bad);
+    font-size: 13px;
+    white-space: pre-wrap;
+  }
+  #errorBox.active { display: block; }
+
+  main {
+    display: none;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  main.visible { display: flex; }
+  .left { flex: 0 0 480px; }
+  .right { flex: 1; min-width: 0; }
+
+  #frameImg {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #000;
+    aspect-ratio: 4/3;
+    object-fit: contain;
+  }
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .controls button { padding: 6px 12px; }
+  #scrubber { flex: 1; }
+  #timeLabel {
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: #444;
+    white-space: nowrap;
+    min-width: 108px;
+    text-align: right;
+  }
+  details {
+    margin-top: 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+  }
+  summary {
+    padding: 8px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    color: #444;
+  }
+  #rawOutput {
+    margin: 0;
+    padding: 12px;
+    border-top: 1px solid var(--line);
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 220px;
+    overflow: auto;
+    color: #333;
+  }
+
+  .right h2 {
+    font-size: 13px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 8px;
+  }
+  #questions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 22px;
+  }
+  .qrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .qask {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    min-width: 0;
+    font-size: 13px;
+    color: #333;
+  }
+  .qid {
+    flex: 0 0 auto;
+    font-family: "SF Mono", Menlo, ui-monospace, monospace;
+    font-size: 11px;
+    color: #666;
+    background: var(--no-bg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 1px 7px;
+  }
+  .qtext { min-width: 0; }
+  .pill {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pill.yes { background: var(--ok-bg); color: var(--ok); }
+  .pill.no { background: var(--no-bg); color: var(--no); }
+  .pill.unclear { background: var(--unclear-bg); color: var(--unclear); }
+  .prob {
+    font-size: 11px;
+    color: #999;
+    font-variant-numeric: tabular-nums;
+    min-width: 34px;
+    text-align: right;
+  }
+
+  #events { display: flex; flex-direction: column; gap: 10px; }
+  .erow {
+    padding: 8px 10px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .erow.active { border-color: #333; box-shadow: 0 0 0 2px rgba(0,0,0,0.06) inset; }
+  .ehead {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .ename { font-weight: 600; }
+  .estatus { font-size: 12px; }
+  .estatus.ok { color: var(--ok); }
+  .estatus.missing { color: var(--bad); }
+  .estatus.correctly-absent { color: #888; }
+  .evidence {
+    font-size: 11px;
+    color: #777;
+    font-family: "SF Mono", Menlo, monospace;
+  }
+  .evidence .qref {
+    display: block;
+    margin-top: 3px;
+    color: #555;
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+  }
+  .timeline {
+    position: relative;
+    height: 10px;
+    background: var(--no-bg);
+    border-radius: 5px;
+    margin-top: 6px;
+    overflow: visible;
+  }
+  .timeline .span {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: var(--ok);
+    opacity: 0.35;
+    border-radius: 5px;
+  }
+  .timeline .playhead {
+    position: absolute;
+    top: -3px; bottom: -3px;
+    width: 2px;
+    background: #1c1c1c;
+  }
+
+  #violations {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--unclear);
+    padding-left: 20px;
+  }
+  #violations:empty { display: none; }
+  #violations li { margin-bottom: 4px; }
+  .summary-card {
+    margin: -8px 0 22px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    line-height: 1.6;
+  }
+
+  footer {
+    display: none;
+    max-width: 1180px;
+    margin: 0 auto 24px;
+    padding: 0 20px;
+  }
+  footer.visible { display: block; }
+  footer h3 { font-size: 13px; color: #666; margin: 0 0 8px; }
+  footer ul { font-size: 13px; color: #444; padding-left: 20px; }
+  footer code {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    background: #fff;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+
+  textarea {
+    width: 100%;
+    min-height: 88px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    resize: vertical;
+  }
+  .hint { font-size: 12px; color: #888; margin-top: 6px; }
+
+  #mockModeWarning { display: none; max-width: 1180px; margin: 16px auto 0; padding: 0 20px; }
+  #mockModeWarning.active { display: block; }
+  #mockModeWarning .warn {
+    background: #fff8e6;
+    border: 1px solid #f0d58a;
+    color: #7a5b00;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  #fileProtocolWarning {
+    display: none;
+    max-width: 1180px;
+    margin: 16px auto 0;
+    padding: 0 20px;
+  }
+  #fileProtocolWarning.active { display: block; }
+  #fileProtocolWarning .warn {
+    background: var(--bad-bg);
+    border: 1px solid #e8b4b0;
+    color: #7a1f1a;
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  #fileProtocolWarning a {
+    color: #1c1c1c;
+    font-weight: 700;
+  }
+  #fileProtocolWarning code {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    background: #fff;
+    padding: 1px 5px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1 id="sopName">動画SOPチェックデモ</h1>
+    <span id="coverage"></span>
+    <button type="button" id="backToSetupBtn" style="display:none">設定に戻る</button>
+    <span id="verdictBadge" class="badge pending" hidden></span>
+  </header>
+
+  <div id="mockModeWarning">
+    <div class="warn" id="mockModeText"></div>
+  </div>
+
+  <div id="fileProtocolWarning">
+    <div class="warn">
+      <strong>file:// では動作しません。</strong>
+      Finder から直接開いた HTML では API に接続できません。
+      ターミナルで <code>python3 server.py</code> を実行し、
+      下のリンクから開き直してください。
+      <div style="margin-top:10px">
+        候補:
+        <a href="http://127.0.0.1:8765/replay.html">8765</a> /
+        <a href="http://127.0.0.1:8766/replay.html">8766</a> /
+        <a href="http://127.0.0.1:8767/replay.html">8767</a> /
+        <a href="http://127.0.0.1:8768/replay.html">8768</a>
+        （<code>server.py</code> 起動時に表示されたポートを選んでください）
+      </div>
+    </div>
+  </div>
+
+  <section class="panel" id="setupPanel">
+    <div class="card">
+      <h2>デモシナリオ</h2>
+      <p class="hint">利用するSOPの設定セットを選ぶと、SOP名・チェック項目・動画の前提説明・イベント定義をまとめて反映します。</p>
+      <div id="assetCards" class="asset-grid"></div>
+    </div>
+
+    <div class="card">
+      <h2>1. 動画と分析設定</h2>
+      <div class="row">
+        <label for="videoInput">動画ファイル</label>
+        <input type="file" id="videoInput" accept="video/*">
+      </div>
+      <div class="row technical-row">
+        <label for="apiUrl">VLM API URL</label>
+        <input type="text" id="apiUrl" class="grow" value="/analyze">
+      </div>
+      <div class="row">
+        <label for="sampleInterval">サンプリング間隔 (秒)</label>
+        <input type="number" id="sampleInterval" min="0.5" max="10" step="0.5" value="1" style="width:80px">
+        <label for="sopTitle">SOP名</label>
+        <input type="text" id="sopTitle" class="grow" placeholder="例: デスク作業チェック">
+      </div>
+      <div class="row">
+        <label for="domainHint">動画の前提説明</label>
+        <input type="text" id="domainHint" class="grow" placeholder="動画の撮影状況・写っているものの説明">
+      </div>
+      <div class="row">
+        <button type="button" id="analyzeBtn" class="primary" disabled>分析開始</button>
+      </div>
+      <div id="progressWrap">
+        <div id="progressBar"><div id="progressFill"></div></div>
+        <div id="progressText"></div>
+      </div>
+      <div id="errorBox"></div>
+    </div>
+
+    <div class="card">
+      <h2>実行履歴</h2>
+      <p class="hint">同じブラウザに直近5件まで保存します。5件を超えると古い結果から削除されます。</p>
+      <div id="historyList" class="history-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>2. チェック項目（質問）</h2>
+      <table id="questionsTable">
+        <thead>
+          <tr>
+            <th style="width:90px">ID</th>
+            <th>質問文</th>
+            <th style="width:140px">回答値</th>
+            <th style="width:70px"></th>
+          </tr>
+        </thead>
+        <tbody id="questionsBody"></tbody>
+      </table>
+      <div class="row" style="margin-top:10px">
+        <button type="button" id="addQuestionBtn">+ 項目を追加</button>
+      </div>
+    </div>
+
+    <details class="card" style="padding:0">
+      <summary style="padding:16px 18px">3. 高度な設定（イベント・relations）</summary>
+      <div style="padding:0 18px 16px">
+        <h2 style="margin-top:0">イベント定義</h2>
+        <table id="eventsTable">
+          <thead>
+            <tr>
+              <th style="width:120px">名前</th>
+              <th>evidence (例: knob==yes)</th>
+              <th style="width:80px">N回目</th>
+              <th style="width:70px"></th>
+            </tr>
+          </thead>
+          <tbody id="eventsBody"></tbody>
+        </table>
+        <div class="row" style="margin-top:10px">
+          <button type="button" id="addEventBtn">+ イベント追加</button>
+        </div>
+        <h2>relations（1行1件）</h2>
+        <textarea id="relationsInput"></textarea>
+        <p class="hint">例: ignite before point1 / flame_seen overlaps ignite / not gloves_worn</p>
+      </div>
+    </details>
+  </section>
+
+  <main id="replayMain">
+    <section class="left">
+      <img id="frameImg" alt="frame">
+      <div class="controls">
+        <button id="prevBtn" type="button">◀</button>
+        <button id="playBtn" type="button">▶ 再生</button>
+        <button id="nextBtn" type="button">▶</button>
+        <input type="range" id="scrubber" min="0" value="0" step="1">
+        <span id="timeLabel"></span>
+      </div>
+      <details open>
+        <summary>このフレームでVLMが実際に返したJSON(生出力)</summary>
+        <pre id="rawOutput"></pre>
+      </details>
+      <details>
+        <summary>実行履歴（直近5件）</summary>
+        <div id="replayHistoryList" class="history-list" style="padding:12px"></div>
+      </details>
+    </section>
+
+    <section class="right">
+      <h2>このフレームの回答</h2>
+      <div id="questions"></div>
+
+      <h2>全フレームの回答傾向</h2>
+      <div id="analysisSummary" class="hint summary-card"></div>
+
+      <h2>イベント検出（回答との対応）</h2>
+      <div id="events"></div>
+      <ul id="violations"></ul>
+    </section>
+  </main>
+
+  <footer id="replayFooter">
+    <h3>relations(このSOPが要求する関係)</h3>
+    <ul id="relations"></ul>
+  </footer>
+
+<script>
+const DEFAULT_TITLE = "動画SOPチェックデモ";
+const HISTORY_STORAGE_KEY = "videoAnalysis.replayHistory.v1";
+const HISTORY_LIMIT = 5;
+const SOP_ASSETS = [
+  {
+    id: "desk_task",
+    label: "デスク作業チェック",
+    description: "デスク上の一連の作業が、想定した順番で行われているかを確認します。",
+    sop: { id: "desk_task", name: "デスク作業チェック" },
+    domain_hint:
+      "これはデスク上の作業を上から撮った動画の1フレームです。デスク上にはペットボトル、紙コップ、ティッシュ、Magic Trackpad（トラックパッド）が見える",
+    questions: [
+      { id: "1", ask: "作業者の手がデスク上のペットボトルから離れているか", values: ["yes", "no"] },
+      { id: "2", ask: "作業者の手が握り拳（グー）の形をしているか", values: ["yes", "no"] },
+      { id: "3", ask: "作業者がデスク上のティッシュを紙コップの中に入れているか", values: ["yes", "no"] },
+      { id: "4", ask: "作業者がMagic Trackpad（トラックパッド）をティッシュで拭いているか", values: ["yes", "no"] },
+      { id: "5", ask: "作業者がMagic Trackpadを拭うのに使ったティッシュを、紙コップの中に入れているか", values: ["yes", "no"] }
+    ],
+    relations: [],
+    eventDefs: [
+      { name: "step_1", evidence: "1==yes", occurrence: 1 },
+      { name: "step_2", evidence: "2==yes", occurrence: 1 },
+      { name: "step_3", evidence: "3==yes", occurrence: 1 },
+      { name: "step_4", evidence: "4==yes", occurrence: 1 },
+      { name: "step_5", evidence: "5==yes", occurrence: 1 }
+    ]
+  },
+  {
+    id: "inventory_check",
+    label: "棚卸し確認",
+    description: "棚にある備品を順番に確認し、記録まで完了しているかを点検します。",
+    sop: { id: "inventory_check", name: "棚卸し確認" },
+    domain_hint:
+      "これは棚や作業台の前で備品を確認している動画の1フレームです。作業者の手元、棚のラベル、チェックシート、筆記具が見える可能性があります。",
+    questions: [
+      { id: "label_checked", ask: "作業者が棚や容器のラベルを確認しているか", values: ["yes", "no"] },
+      { id: "item_counted", ask: "作業者が対象の備品を数えているか", values: ["yes", "no"] },
+      { id: "sheet_updated", ask: "作業者が確認結果をチェックシートに記録しているか", values: ["yes", "no"] },
+      { id: "item_returned", ask: "作業者が備品を元の位置に戻しているか", values: ["yes", "no"] }
+    ],
+    relations: [
+      "label_checked before item_counted",
+      "item_counted before sheet_updated",
+      "sheet_updated before item_returned"
+    ],
+    eventDefs: [
+      { name: "label_checked", evidence: "label_checked==yes", occurrence: 1 },
+      { name: "item_counted", evidence: "item_counted==yes", occurrence: 1 },
+      { name: "sheet_updated", evidence: "sheet_updated==yes", occurrence: 1 },
+      { name: "item_returned", evidence: "item_returned==yes", occurrence: 1 }
+    ]
+  },
+  {
+    id: "safety_equipment",
+    label: "安全装備チェック",
+    description: "作業開始前に必要な保護具と周辺確認がそろっているかを確認します。",
+    sop: { id: "safety_equipment", name: "安全装備チェック" },
+    domain_hint:
+      "これは作業開始前の準備を撮影した動画の1フレームです。作業者の手元、保護具、作業台、周囲の安全確認動作が見える可能性があります。",
+    questions: [
+      { id: "gloves_worn", ask: "作業者が手袋を着用しているか", values: ["yes", "no"] },
+      { id: "goggles_worn", ask: "作業者が保護メガネを着用しているか", values: ["yes", "no"] },
+      { id: "tools_checked", ask: "作業者が使用する道具を確認しているか", values: ["yes", "no"] },
+      { id: "workspace_clear", ask: "作業スペースに不要物が残っていないか", values: ["yes", "no"] }
+    ],
+    relations: [
+      "gloves_worn before tools_checked",
+      "goggles_worn before tools_checked",
+      "workspace_clear overlaps tools_checked"
+    ],
+    eventDefs: [
+      { name: "gloves_worn", evidence: "gloves_worn==yes", occurrence: 1 },
+      { name: "goggles_worn", evidence: "goggles_worn==yes", occurrence: 1 },
+      { name: "tools_checked", evidence: "tools_checked==yes", occurrence: 1 },
+      { name: "workspace_clear", evidence: "workspace_clear==yes", occurrence: 1 }
+    ]
+  }
+];
+
+let DATA = null;
+let notOnly = new Set();
+let idx = 0;
+let playing = false;
+let timer = null;
+
+const videoInput = document.getElementById("videoInput");
+const apiUrlInput = document.getElementById("apiUrl");
+const assetCards = document.getElementById("assetCards");
+const sampleIntervalInput = document.getElementById("sampleInterval");
+const sopTitleInput = document.getElementById("sopTitle");
+const domainHintInput = document.getElementById("domainHint");
+const relationsInput = document.getElementById("relationsInput");
+const analyzeBtn = document.getElementById("analyzeBtn");
+const backToSetupBtn = document.getElementById("backToSetupBtn");
+const progressWrap = document.getElementById("progressWrap");
+const progressFill = document.getElementById("progressFill");
+const progressText = document.getElementById("progressText");
+const errorBox = document.getElementById("errorBox");
+const historyList = document.getElementById("historyList");
+const replayHistoryList = document.getElementById("replayHistoryList");
+const setupPanel = document.getElementById("setupPanel");
+const replayMain = document.getElementById("replayMain");
+const replayFooter = document.getElementById("replayFooter");
+const scrubber = document.getElementById("scrubber");
+const fileProtocolWarning = document.getElementById("fileProtocolWarning");
+const mockModeWarning = document.getElementById("mockModeWarning");
+const mockModeText = document.getElementById("mockModeText");
+const isFileProtocol = window.location.protocol === "file:";
+
+function initFileProtocolGuard() {
+  if (!isFileProtocol) return;
+
+  fileProtocolWarning.classList.add("active");
+  analyzeBtn.disabled = true;
+}
+
+async function initAnalyzeModeBanner() {
+  if (isFileProtocol) return;
+  try {
+    const resp = await fetch("/api/status");
+    if (!resp.ok) return;
+    const status = await resp.json();
+    if (status.mode === "mock") {
+      mockModeText.innerHTML =
+        "<strong>モックモードです。</strong> 全項目 <code>no</code> を返します。ローカル VLM を使うには <code>VLM_USE_MOCK</code> を外して server.py を再起動してください。";
+      mockModeWarning.classList.add("active");
+    } else if (status.mode === "error") {
+      mockModeText.innerHTML =
+        "<strong>VLM バックエンド未設定:</strong> " + status.message;
+      mockModeWarning.classList.add("active");
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function showError(message) {
+  errorBox.textContent = message;
+  errorBox.classList.add("active");
+}
+
+function clearError() {
+  errorBox.textContent = "";
+  errorBox.classList.remove("active");
+}
+
+function setProgress(current, total, label) {
+  progressWrap.classList.add("active");
+  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  progressFill.style.width = pct + "%";
+  progressText.textContent = label || `${current}/${total} (${pct}%)`;
+}
+
+function hideProgress() {
+  progressWrap.classList.remove("active");
+}
+
+function trimHistoryEntries(entries) {
+  return entries.slice(-HISTORY_LIMIT).reverse();
+}
+
+function loadStoredHistoryEntries() {
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredHistoryEntries(entries) {
+  const trimmedOldestFirst = entries.slice(-HISTORY_LIMIT);
+  localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmedOldestFirst));
+}
+
+function createHistoryEntry(result) {
+  const createdAt = new Date().toISOString();
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt,
+    title: result.sop?.name || "名称未設定のSOP",
+    verdict: result.verdict,
+    coverage: result.coverage,
+    n_frames: result.n_frames,
+    result
+  };
+}
+
+function saveResultToHistory(result) {
+  try {
+    const history = loadStoredHistoryEntries();
+    writeStoredHistoryEntries([...history, createHistoryEntry(result)]);
+    renderHistoryLists();
+    return true;
+  } catch (err) {
+    console.warn("履歴の保存に失敗しました。localStorage の容量上限に達した可能性があります。", err);
+    return false;
+  }
+}
+
+function formatHistoryTimestamp(createdAt) {
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "日時不明";
+  return date.toLocaleString("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function renderHistoryList(container) {
+  container.innerHTML = "";
+  const entries = trimHistoryEntries(loadStoredHistoryEntries());
+  if (entries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "history-empty";
+    empty.textContent = "まだ実行履歴はありません。";
+    container.appendChild(empty);
+    return;
+  }
+
+  entries.forEach(entry => {
+    const row = document.createElement("div");
+    row.className = "history-row";
+
+    const main = document.createElement("span");
+    main.className = "history-main";
+
+    const title = document.createElement("span");
+    title.className = "history-title";
+    title.textContent = entry.title || "名称未設定のSOP";
+
+    const meta = document.createElement("span");
+    meta.className = "history-meta";
+    const coveragePct = Math.round((entry.coverage || 0) * 100);
+    meta.textContent = `${formatHistoryTimestamp(entry.createdAt)} / ${entry.verdict || "判定なし"} / coverage ${coveragePct}% / ${entry.n_frames || 0}フレーム`;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "表示";
+    button.addEventListener("click", () => {
+      stopPlayback();
+      showReplay(entry.result);
+    });
+
+    main.append(title, meta);
+    row.append(main, button);
+    container.appendChild(row);
+  });
+}
+
+function renderHistoryLists() {
+  renderHistoryList(historyList);
+  renderHistoryList(replayHistoryList);
+}
+
+function createRemoveButton(onRemove) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "削除";
+  btn.addEventListener("click", onRemove);
+  return btn;
+}
+
+function renderQuestionsEditor(questions) {
+  const body = document.getElementById("questionsBody");
+  body.innerHTML = "";
+  questions.forEach((q, index) => {
+    const tr = document.createElement("tr");
+    const idTd = document.createElement("td");
+    const askTd = document.createElement("td");
+    const valuesTd = document.createElement("td");
+    const actionsTd = document.createElement("td");
+    actionsTd.className = "table-actions";
+
+    const idInput = document.createElement("input");
+    idInput.type = "text";
+    idInput.value = q.id;
+    idInput.addEventListener("change", () => { q.id = idInput.value.trim(); });
+
+    const askInput = document.createElement("input");
+    askInput.type = "text";
+    askInput.value = q.ask;
+    askInput.addEventListener("change", () => { q.ask = askInput.value; });
+
+    const valuesInput = document.createElement("input");
+    valuesInput.type = "text";
+    valuesInput.value = q.values.join(", ");
+    valuesInput.addEventListener("change", () => {
+      q.values = valuesInput.value.split(",").map(v => v.trim()).filter(Boolean);
+    });
+
+    idTd.appendChild(idInput);
+    askTd.appendChild(askInput);
+    valuesTd.appendChild(valuesInput);
+    actionsTd.appendChild(createRemoveButton(() => {
+      questions.splice(index, 1);
+      renderQuestionsEditor(questions);
+    }));
+
+    tr.append(idTd, askTd, valuesTd, actionsTd);
+    body.appendChild(tr);
+  });
+}
+
+function renderEventsEditor(eventDefs) {
+  const body = document.getElementById("eventsBody");
+  body.innerHTML = "";
+  eventDefs.forEach((ev, index) => {
+    const tr = document.createElement("tr");
+    const nameTd = document.createElement("td");
+    const evidenceTd = document.createElement("td");
+    const occTd = document.createElement("td");
+    const actionsTd = document.createElement("td");
+    actionsTd.className = "table-actions";
+
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.value = ev.name;
+    nameInput.addEventListener("change", () => { ev.name = nameInput.value.trim(); });
+
+    const evidenceInput = document.createElement("input");
+    evidenceInput.type = "text";
+    evidenceInput.value = ev.evidence;
+    evidenceInput.addEventListener("change", () => { ev.evidence = evidenceInput.value.trim(); });
+
+    const occInput = document.createElement("input");
+    occInput.type = "number";
+    occInput.min = "1";
+    occInput.value = String(ev.occurrence || 1);
+    occInput.style.width = "64px";
+    occInput.addEventListener("change", () => {
+      ev.occurrence = Math.max(1, parseInt(occInput.value, 10) || 1);
+    });
+
+    nameTd.appendChild(nameInput);
+    evidenceTd.appendChild(evidenceInput);
+    occTd.appendChild(occInput);
+    actionsTd.appendChild(createRemoveButton(() => {
+      eventDefs.splice(index, 1);
+      renderEventsEditor(eventDefs);
+    }));
+
+    tr.append(nameTd, evidenceTd, occTd, actionsTd);
+    body.appendChild(tr);
+  });
+}
+
+const editorState = {
+  sopId: "custom_sop",
+  questions: [],
+  eventDefs: []
+};
+
+function isEditorDirty() {
+  return editorState.questions.length > 0
+    || editorState.eventDefs.length > 0
+    || relationsInput.value.trim()
+    || sopTitleInput.value.trim()
+    || domainHintInput.value.trim();
+}
+
+function applyConfigToEditor(config) {
+  editorState.sopId = config.sop?.id || "custom_sop";
+  editorState.questions = structuredClone(config.questions || []);
+  editorState.eventDefs = structuredClone(config.eventDefs || []);
+  renderQuestionsEditor(editorState.questions);
+  renderEventsEditor(editorState.eventDefs);
+  relationsInput.value = (config.relations || []).join("\n");
+  sopTitleInput.value = config.sop?.name || "";
+  domainHintInput.value = config.domain_hint || "";
+  clearError();
+}
+
+function applyAssetConfig(asset) {
+  if (!asset) return;
+  if (isEditorDirty()) {
+    const ok = window.confirm(
+      `現在の設定をすべて破棄し、「${asset.label}」の設定で置き換えます。よろしいですか？`
+    );
+    if (!ok) return;
+  }
+
+  applyConfigToEditor(asset);
+  renderAssetCards(asset.id);
+}
+
+function renderAssetCards(selectedAssetId = editorState.sopId) {
+  assetCards.innerHTML = "";
+  SOP_ASSETS.forEach(asset => {
+    const card = document.createElement("article");
+    card.className = "asset-card" + (asset.id === selectedAssetId ? " active" : "");
+    card.innerHTML = `
+      <h3>${asset.label}</h3>
+      <p>${asset.description}</p>
+      <span class="asset-meta">${asset.questions.length}項目 / ${asset.eventDefs.length}イベント</span>
+    `;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "このシナリオを使う";
+    button.addEventListener("click", () => applyAssetConfig(asset));
+    card.appendChild(button);
+    assetCards.appendChild(card);
+  });
+}
+
+renderAssetCards();
+renderQuestionsEditor(editorState.questions);
+renderEventsEditor(editorState.eventDefs);
+renderHistoryLists();
+relationsInput.value = "";
+sopTitleInput.value = "";
+domainHintInput.value = "";
+
+document.getElementById("addQuestionBtn").addEventListener("click", () => {
+  editorState.sopId = "custom_sop";
+  editorState.questions.push({ id: "item_" + (editorState.questions.length + 1), ask: "", values: ["yes", "no"] });
+  renderQuestionsEditor(editorState.questions);
+  renderAssetCards();
+});
+
+document.getElementById("addEventBtn").addEventListener("click", () => {
+  editorState.sopId = "custom_sop";
+  editorState.eventDefs.push({ name: "event_" + (editorState.eventDefs.length + 1), evidence: "item_1==yes", occurrence: 1 });
+  renderEventsEditor(editorState.eventDefs);
+  renderAssetCards();
+});
+
+videoInput.addEventListener("change", () => {
+  analyzeBtn.disabled = !videoInput.files || videoInput.files.length === 0;
+});
+
+function readConfigFromEditor() {
+  const relations = document.getElementById("relationsInput").value
+    .split("\n")
+    .map(line => line.trim())
+    .filter(Boolean);
+  return {
+    sop: { id: editorState.sopId || "custom_sop", name: sopTitleInput.value.trim() || "カスタムSOP" },
+    questions: structuredClone(editorState.questions),
+    relations,
+    eventDefs: structuredClone(editorState.eventDefs)
+  };
+}
+
+function waitForVideoEvent(target, eventName) {
+  return new Promise((resolve) => {
+    const handler = () => {
+      target.removeEventListener(eventName, handler);
+      resolve();
+    };
+    target.addEventListener(eventName, handler);
+  });
+}
+
+async function extractFrames(videoFile, intervalSec) {
+  const url = URL.createObjectURL(videoFile);
+  const video = document.createElement("video");
+  video.src = url;
+  video.muted = true;
+  video.playsInline = true;
+
+  await waitForVideoEvent(video, "loadedmetadata");
+  const duration = video.duration;
+  if (!Number.isFinite(duration) || duration <= 0) {
+    URL.revokeObjectURL(url);
+    throw new Error("動画の長さを取得できませんでした。");
+  }
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const frames = [];
+
+  for (let t = 0; t <= duration + 0.001; t += intervalSec) {
+    video.currentTime = Math.min(t, duration);
+    await waitForVideoEvent(video, "seeked");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+    frames.push({
+      idx: frames.length,
+      t: Math.round(video.currentTime * 10) / 10,
+      image: canvas.toDataURL("image/jpeg", 0.85),
+      raw: "",
+      answers: {},
+      probs: {}
+    });
+  }
+
+  URL.revokeObjectURL(url);
+  return frames;
+}
+
+function parseVlmResponse(text) {
+  const cleaned = String(text).replace(/<\|redacted_im_end\|>/g, "").trim();
+  const jsonStart = cleaned.indexOf("{");
+  const jsonEnd = cleaned.lastIndexOf("}");
+  if (jsonStart === -1 || jsonEnd === -1) {
+    throw new Error("VLM応答からJSONを抽出できませんでした:\n" + cleaned.slice(0, 200));
+  }
+  const answers = JSON.parse(cleaned.slice(jsonStart, jsonEnd + 1));
+  return { answers, raw: String(text) };
+}
+
+function normalizeAnalyzeResponse(data, questions) {
+  const reserved = new Set(["raw", "answers", "probs", "mode"]);
+  const questionIds = new Set(questions.map(q => q.id));
+
+  if (data?.answers && Object.keys(data.answers).length > 0) {
+    return {
+      answers: data.answers,
+      raw: data.raw || JSON.stringify(data.answers, null, 2),
+      probs: data.probs || {}
+    };
+  }
+
+  const rawText = typeof data.raw === "string"
+    ? data.raw
+    : (data.raw ? JSON.stringify(data.raw) : "");
+  if (rawText) {
+    const parsed = parseVlmResponse(rawText);
+    if (parsed.answers && Object.keys(parsed.answers).length > 0) {
+      return { ...parsed, probs: data.probs || {} };
+    }
+  }
+
+  const flatAnswers = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (reserved.has(key)) continue;
+    if (questionIds.has(key) && typeof value === "string") {
+      flatAnswers[key] = value;
+    }
+  }
+  if (Object.keys(flatAnswers).length > 0) {
+    return {
+      answers: flatAnswers,
+      raw: JSON.stringify(flatAnswers, null, 2),
+      probs: data.probs || {}
+    };
+  }
+
+  const preview = (rawText || JSON.stringify(data)).slice(0, 400);
+  throw new Error("VLM応答に answers がありません\nraw preview: " + preview);
+}
+
+async function ensureServerReady() {
+  if (isFileProtocol) return;
+  const statusResp = await fetch("/api/status");
+  if (!statusResp.ok) {
+    throw new Error(`サーバー応答異常 (${statusResp.status})。${window.location.origin} が server.py の URL と一致しているか確認してください。`);
+  }
+  const status = await statusResp.json();
+  if (status.mode === "vlm" && !status.ready) {
+    setProgress(0, 1, "VLMモデルをロード中（初回は数分かかります）...");
+    const warmResp = await fetch("/api/warmup", { method: "POST" });
+    if (!warmResp.ok) {
+      const body = await warmResp.text();
+      throw new Error(`VLMロード失敗: ${body.slice(0, 300)}`);
+    }
+  }
+}
+
+async function analyzeFrame(frame, questions, apiUrl, domainHint) {
+  let resp;
+  try {
+    resp = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        image: frame.image,
+        questions,
+        t: frame.t,
+        domain_hint: domainHint
+      })
+    });
+  } catch (err) {
+    const hint = window.location.protocol === "file:"
+      ? "file:// で開いています。server.py 起動後に表示された http://127.0.0.1:PORT/replay.html を開いてください。"
+      : `接続先: ${window.location.origin}${apiUrl}\nserver.py が同じポートで起動しているか確認してください（古い 8769 等は使わない）。`;
+    throw new Error(`Failed to fetch (${apiUrl})\n${hint}`);
+  }
+  if (!resp.ok) {
+    const body = await resp.text();
+    let msg = body.slice(0, 400);
+    try {
+      const err = JSON.parse(body);
+      if (err.error) msg = err.error;
+    } catch {
+      // keep raw body
+    }
+    throw new Error(`API error ${resp.status}: ${msg}`);
+  }
+
+  const contentType = resp.headers.get("Content-Type") || "";
+  if (contentType.includes("application/json")) {
+    const data = await resp.json();
+    return normalizeAnalyzeResponse(data, questions);
+  }
+
+  const text = await resp.text();
+  try {
+    const data = JSON.parse(text);
+    if (data && typeof data === "object") {
+      return normalizeAnalyzeResponse(data, questions);
+    }
+  } catch {
+    // fall through to raw text parser
+  }
+  return parseVlmResponse(text);
+}
+
+function deriveEventDefs(questions, eventDefs) {
+  if (eventDefs.length > 0) return eventDefs;
+  return questions
+    .filter(q => q.id)
+    .map(q => ({
+      name: `step_${q.id}`,
+      evidence: `${q.id}==yes`,
+      occurrence: 1
+    }));
+}
+
+function collectMissingEventViolations(events, relations) {
+  const excluded = new Set(
+    relations
+      .map(r => /^\s*not\s+(\w+)\s*$/.exec(r))
+      .filter(Boolean)
+      .map(m => m[1])
+  );
+  const violations = [];
+  for (const [name, ev] of Object.entries(events)) {
+    if (excluded.has(name)) continue;
+    if (ev.start_idx === null) {
+      violations.push(`${name} が未検出 (${ev.evidence})`);
+    }
+  }
+  return violations;
+}
+
+function summarizeDetection(frames, questions) {
+  const stats = questions.map(q => {
+    const yesCount = frames.filter(f => f.answers?.[q.id] === "yes").length;
+    return { id: q.id, ask: q.ask, yesCount, total: frames.length };
+  });
+  const allNo = stats.every(s => s.yesCount === 0);
+  return { stats, allNo };
+}
+
+function findEvidenceRanges(frames, key, val) {
+  const ranges = [];
+  let start = null;
+  for (let i = 0; i < frames.length; i++) {
+    const match = frames[i].answers?.[key] === val;
+    if (match && start === null) start = i;
+    if (!match && start !== null) {
+      ranges.push([start, i - 1]);
+      start = null;
+    }
+  }
+  if (start !== null) ranges.push([start, frames.length - 1]);
+  return ranges;
+}
+
+function detectEvents(frames, eventDefs) {
+  const events = {};
+  for (const def of eventDefs) {
+    const match = /^(\w+)==(\w+)$/.exec(def.evidence || "");
+    if (!match) {
+      events[def.name] = { evidence: def.evidence, start_idx: null, end_idx: null, t: null };
+      continue;
+    }
+    const [, key, val] = match;
+    const ranges = findEvidenceRanges(frames, key, val);
+    const occIndex = Math.max(1, def.occurrence || 1) - 1;
+    const range = ranges[occIndex];
+    if (range) {
+      const [startIdx, endIdx] = range;
+      events[def.name] = {
+        evidence: def.evidence,
+        start_idx: startIdx,
+        end_idx: endIdx,
+        t: frames[Math.floor((startIdx + endIdx) / 2)].t
+      };
+    } else {
+      events[def.name] = { evidence: def.evidence, start_idx: null, end_idx: null, t: null };
+    }
+  }
+  return events;
+}
+
+function intervalsOverlap(a, b) {
+  return a.start_idx <= b.end_idx && b.start_idx <= a.end_idx;
+}
+
+function checkRelations(relations, events) {
+  const violations = [];
+  for (const rel of relations) {
+    const notMatch = /^\s*not\s+(\w+)\s*$/.exec(rel);
+    if (notMatch) {
+      const ev = events[notMatch[1]];
+      if (ev && ev.start_idx !== null) violations.push(rel);
+      continue;
+    }
+
+    const beforeMatch = /^(\w+)\s+before\s+(\w+)\s*$/.exec(rel);
+    if (beforeMatch) {
+      const [, aName, bName] = beforeMatch;
+      const a = events[aName];
+      const b = events[bName];
+      if (!a || a.start_idx === null) {
+        violations.push(`${aName} が未検出 (${rel})`);
+      } else if (!b || b.start_idx === null) {
+        violations.push(`${bName} が未検出 (${rel})`);
+      } else if (a.end_idx >= b.start_idx) {
+        violations.push(rel);
+      }
+      continue;
+    }
+
+    const overlapMatch = /^(\w+)\s+overlaps\s+(\w+)\s*$/.exec(rel);
+    if (overlapMatch) {
+      const [, aName, bName] = overlapMatch;
+      const a = events[aName];
+      const b = events[bName];
+      if (!a || a.start_idx === null) {
+        violations.push(`${aName} が未検出 (${rel})`);
+      } else if (!b || b.start_idx === null) {
+        violations.push(`${bName} が未検出 (${rel})`);
+      } else if (!intervalsOverlap(a, b)) {
+        violations.push(rel);
+      }
+      continue;
+    }
+
+    violations.push(`未対応のrelation: ${rel}`);
+  }
+  return violations;
+}
+
+function computeCoverage(events, relations) {
+  const excluded = new Set(
+    relations
+      .map(r => /^\s*not\s+(\w+)\s*$/.exec(r))
+      .filter(Boolean)
+      .map(m => m[1])
+  );
+  const required = Object.keys(events).filter(name => !excluded.has(name));
+  if (required.length === 0) return 1;
+  const detected = required.filter(name => events[name].start_idx !== null);
+  return detected.length / required.length;
+}
+
+function buildAnalysisResult(config, frames) {
+  const eventDefs = deriveEventDefs(config.questions, config.eventDefs);
+  const events = detectEvents(frames, eventDefs);
+  const relationViolations = checkRelations(config.relations, events);
+  const missingViolations = collectMissingEventViolations(events, config.relations);
+  const violations = [...relationViolations, ...missingViolations];
+  const coverage = computeCoverage(events, config.relations);
+  const detection = summarizeDetection(frames, config.questions);
+  return {
+    sop: config.sop,
+    questions: config.questions,
+    relations: config.relations,
+    eventDefs,
+    verdict: violations.length === 0 && coverage === 1 ? "PASS" : "FAIL",
+    coverage,
+    violations,
+    events,
+    n_frames: frames.length,
+    frames,
+    detection
+  };
+}
+
+async function runAnalysis() {
+  clearError();
+  if (isFileProtocol) {
+    showError("file:// では分析できません。server.py を起動し、http://127.0.0.1:PORT/replay.html から開き直してください。");
+    return;
+  }
+  const file = videoInput.files?.[0];
+  if (!file) {
+    showError("動画ファイルを選択してください。");
+    return;
+  }
+
+  const config = readConfigFromEditor();
+  if (config.questions.some(q => !q.id || !q.ask)) {
+    showError("すべてのチェック項目に ID と質問文を入力してください。");
+    return;
+  }
+
+  analyzeBtn.disabled = true;
+  backToSetupBtn.style.display = "none";
+
+  try {
+    const intervalSec = parseFloat(sampleIntervalInput.value) || 1;
+    setProgress(0, 1, "フレーム抽出中...");
+    const frames = await extractFrames(file, intervalSec);
+
+    await ensureServerReady();
+
+    const apiUrl = apiUrlInput.value.trim() || "/analyze";
+    const domainHint = domainHintInput.value.trim() || "これは作業動画の1フレームです";
+    for (let i = 0; i < frames.length; i++) {
+      setProgress(i, frames.length, `VLM分析中... frame ${i + 1}/${frames.length} (t=${frames[i].t}s)`);
+      const result = await analyzeFrame(frames[i], config.questions, apiUrl, domainHint);
+      frames[i].answers = result.answers;
+      frames[i].raw = result.raw;
+      frames[i].probs = result.probs || {};
+    }
+
+    DATA = buildAnalysisResult(config, frames);
+    const historySaved = saveResultToHistory(DATA);
+    showReplay(DATA);
+    if (!historySaved) {
+      window.alert("分析結果は表示できましたが、履歴保存に失敗しました。ブラウザの保存容量を超えている可能性があります。");
+    }
+  } catch (err) {
+    showError(String(err.message || err));
+  } finally {
+    analyzeBtn.disabled = !(videoInput.files && videoInput.files.length > 0);
+    hideProgress();
+  }
+}
+
+function updateHeader() {
+  document.getElementById("sopName").textContent = DATA.sop.name;
+  document.getElementById("coverage").textContent = `coverage ${Math.round(DATA.coverage * 100)}%`;
+  const badge = document.getElementById("verdictBadge");
+  badge.hidden = false;
+  badge.textContent = DATA.verdict;
+  badge.className = "badge " + (DATA.verdict === "PASS" ? "pass" : "fail");
+}
+
+function renderRelationsList() {
+  const relUl = document.getElementById("relations");
+  relUl.innerHTML = "";
+  DATA.relations.forEach(r => {
+    const li = document.createElement("li");
+    li.innerHTML = `<code>${r}</code>`;
+    relUl.appendChild(li);
+  });
+}
+
+function renderAnalysisSummary() {
+  const box = document.getElementById("analysisSummary");
+  if (!DATA?.detection) {
+    box.textContent = "";
+    return;
+  }
+  const lines = DATA.detection.stats.map(s =>
+    `項目 ${escapeHtml(s.id)}: yes が ${s.yesCount}/${s.total} フレーム - ${escapeHtml(s.ask)}`
+  );
+  let html = lines.join("<br>");
+  if (DATA.detection.allNo) {
+    html += "<br><strong style='color:var(--bad)'>全フレームで全項目 no です。</strong> "
+      + "モックモードか、動画の前提説明・質問文・サンプリング間隔(0.5秒など)を見直してください。";
+  }
+  box.innerHTML = html;
+}
+
+function renderViolations() {
+  const violUl = document.getElementById("violations");
+  violUl.innerHTML = "";
+  DATA.violations.forEach(v => {
+    const li = document.createElement("li");
+    li.textContent = "要確認: " + formatViolationText(v);
+    violUl.appendChild(li);
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function questionById(questionId) {
+  return DATA.questions.find(q => q.id === questionId) || null;
+}
+
+function formatEvidence(evidence) {
+  const match = /^(\w+)==(\w+)$/.exec(evidence || "");
+  if (!match) return escapeHtml(evidence || "");
+
+  const [, questionId, expectedValue] = match;
+  const question = questionById(questionId);
+  if (!question) return escapeHtml(evidence);
+
+  return `${escapeHtml(evidence)}<span class="qref">根拠: 項目 ${escapeHtml(question.id)}「${escapeHtml(question.ask)}」が ${escapeHtml(expectedValue)}</span>`;
+}
+
+function formatViolationText(violation) {
+  const match = /^(.*)\s+\((\w+)==(\w+)\)$/.exec(violation);
+  if (!match) return violation;
+
+  const [, message, questionId, expectedValue] = match;
+  const question = questionById(questionId);
+  if (!question) return violation;
+
+  return `${message}（根拠: 項目 ${question.id}「${question.ask}」が ${expectedValue}）`;
+}
+
+function pillClass(v) {
+  if (v === "yes") return "pill yes";
+  if (v === "unclear") return "pill unclear";
+  return "pill no";
+}
+
+function renderQuestions(frame) {
+  const box = document.getElementById("questions");
+  box.innerHTML = "";
+  DATA.questions.forEach(q => {
+    const val = frame.answers[q.id] ?? "?";
+    const prob = frame.probs[q.id] ? frame.probs[q.id][val] : null;
+    const row = document.createElement("div");
+    row.className = "qrow";
+    row.innerHTML = `
+      <span class="qask">
+        <span class="qid">項目 ${escapeHtml(q.id)}</span>
+        <span class="qtext">${escapeHtml(q.ask)}</span>
+      </span>
+      <span class="prob">${prob != null ? Math.round(prob * 100) + "%" : ""}</span>
+      <span class="${pillClass(val)}">${escapeHtml(val)}</span>
+    `;
+    box.appendChild(row);
+  });
+}
+
+function renderEvents() {
+  const box = document.getElementById("events");
+  box.innerHTML = "";
+  for (const [name, ev] of Object.entries(DATA.events)) {
+    const detected = ev.start_idx !== null;
+    const isNotOnly = notOnly.has(name);
+    const active = detected && idx >= ev.start_idx && idx <= ev.end_idx;
+
+    let statusText;
+    let statusClass;
+    if (detected && isNotOnly) {
+      statusText = `検出された(本来は起きてはいけない) t=${ev.t}s`;
+      statusClass = "missing";
+    } else if (detected) {
+      statusText = `検出 t=${ev.t}s (frame ${ev.start_idx}-${ev.end_idx})`;
+      statusClass = "ok";
+    } else if (isNotOnly) {
+      statusText = "未検出(これが正しい)";
+      statusClass = "correctly-absent";
+    } else {
+      statusText = "未検出";
+      statusClass = "missing";
+    }
+
+    const row = document.createElement("div");
+    row.className = "erow" + (active ? " active" : "");
+    row.innerHTML = `
+      <div class="ehead">
+        <span class="ename">${escapeHtml(name)}</span>
+        <span class="estatus ${statusClass}">${escapeHtml(statusText)}</span>
+      </div>
+      <div class="evidence">${formatEvidence(ev.evidence)}</div>
+      <div class="timeline"></div>
+    `;
+
+    const tl = row.querySelector(".timeline");
+    if (detected) {
+      const span = document.createElement("div");
+      span.className = "span";
+      span.style.left = (ev.start_idx / DATA.n_frames * 100) + "%";
+      span.style.width = ((ev.end_idx - ev.start_idx + 1) / DATA.n_frames * 100) + "%";
+      tl.appendChild(span);
+    }
+    const playhead = document.createElement("div");
+    playhead.className = "playhead";
+    playhead.style.left = (idx / Math.max(DATA.n_frames - 1, 1) * 100) + "%";
+    tl.appendChild(playhead);
+
+    box.appendChild(row);
+  }
+}
+
+function render() {
+  const frame = DATA.frames[idx];
+  document.getElementById("frameImg").src = frame.image;
+  document.getElementById("timeLabel").textContent =
+    `t=${frame.t.toFixed(1)}s  (${idx + 1}/${DATA.n_frames})`;
+  document.getElementById("rawOutput").textContent = frame.raw || "(空)";
+  scrubber.max = DATA.n_frames - 1;
+  scrubber.value = idx;
+  renderQuestions(frame);
+  renderEvents();
+}
+
+function stopPlayback() {
+  playing = false;
+  clearInterval(timer);
+  document.getElementById("playBtn").textContent = "▶ 再生";
+}
+
+function step(delta) {
+  idx = Math.max(0, Math.min(DATA.n_frames - 1, idx + delta));
+  render();
+}
+
+function showReplay(data) {
+  DATA = data;
+  notOnly = new Set(
+    DATA.relations
+      .map(r => /^\s*not\s+(\w+)\s*$/.exec(r))
+      .filter(Boolean)
+      .map(m => m[1])
+  );
+
+  setupPanel.style.display = "none";
+  replayMain.classList.add("visible");
+  replayFooter.classList.add("visible");
+  backToSetupBtn.style.display = "inline-block";
+  renderHistoryLists();
+
+  idx = 0;
+  updateHeader();
+  renderRelationsList();
+  renderViolations();
+  renderAnalysisSummary();
+  render();
+}
+
+function showSetup() {
+  stopPlayback();
+  DATA = null;
+  notOnly = new Set();
+  setupPanel.style.display = "block";
+  replayMain.classList.remove("visible");
+  replayFooter.classList.remove("visible");
+  backToSetupBtn.style.display = "none";
+  renderHistoryLists();
+  document.getElementById("sopName").textContent = DEFAULT_TITLE;
+  document.getElementById("coverage").textContent = "";
+  const badge = document.getElementById("verdictBadge");
+  badge.hidden = true;
+  badge.textContent = "";
+  badge.className = "badge pending";
+}
+
+analyzeBtn.addEventListener("click", runAnalysis);
+backToSetupBtn.addEventListener("click", showSetup);
+
+document.getElementById("playBtn").addEventListener("click", () => {
+  if (!DATA) return;
+  if (playing) { stopPlayback(); return; }
+  if (idx >= DATA.n_frames - 1) idx = 0;
+  playing = true;
+  document.getElementById("playBtn").textContent = "⏸ 停止";
+  timer = setInterval(() => {
+    if (idx >= DATA.n_frames - 1) { stopPlayback(); return; }
+    step(1);
+  }, 650);
+});
+document.getElementById("prevBtn").addEventListener("click", () => { stopPlayback(); step(-1); });
+document.getElementById("nextBtn").addEventListener("click", () => { stopPlayback(); step(1); });
+scrubber.addEventListener("input", () => {
+  if (!DATA) return;
+  stopPlayback();
+  idx = parseInt(scrubber.value, 10);
+  render();
+});
+window.addEventListener("keydown", (e) => {
+  if (!DATA) return;
+  if (e.key === "ArrowLeft") { stopPlayback(); step(-1); }
+  if (e.key === "ArrowRight") { stopPlayback(); step(1); }
+  if (e.key === " ") { e.preventDefault(); document.getElementById("playBtn").click(); }
+});
+
+initFileProtocolGuard();
+initAnalyzeModeBanner();
+</script>
+</body>
+</html>
