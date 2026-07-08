@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Cursor local state
+.cursor/hooks/state/
+
+# CLI / VLM runtime outputs (see small_vlm_video_analysis/README.md)
+out/
+*.log
+
+# Optional local model cache (HF/MLX downloads usually live under ~/.cache)
+.cache/
+models/
+
+# Local videos and large artifacts (examples/ under small_vlm_video_analysis stay tracked)
+/data/
