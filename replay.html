@@ -13,12 +13,20 @@
     --unclear-bg: #fef3e0;
     --bad: #c0362c;
     --bad-bg: #fbe9e7;
+    --warn: #F6AA00;
+    --warn-bg: #fff4e0;
     --line: #ddd;
     --accent-action: #8ee4d4;
     --accent-action-hover: #76d8c4;
     --accent-action-text: #1e5c50;
+    --accent-danger: #f0a8a0;
+    --accent-danger-hover: #e8968d;
+    --accent-danger-text: #8b2e26;
     --accent-soft: #e6faf5;
     --accent-title: #1e5c50;
+    --page-max-width: min(1680px, calc(100vw - 32px));
+    --sticky-header-height: 49px;
+    --sticky-sop-name-block: 40px;
   }
   * { box-sizing: border-box; }
   body {
@@ -39,7 +47,24 @@
     z-index: 10;
   }
   header h1 { font-size: 17px; margin: 0; font-weight: 600; flex: 1; color: var(--accent-title); }
-  #backToSetupBtn { white-space: nowrap; }
+  header h1.nav-link {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: rgba(30, 92, 80, 0.35);
+    text-underline-offset: 3px;
+  }
+  header h1.nav-link:hover { color: var(--accent-action-text); }
+  .replay-sop-name {
+    margin: 0 0 12px;
+    padding-bottom: 4px;
+    font-size: 21px;
+    font-weight: 600;
+    color: var(--accent-title);
+    position: sticky;
+    top: var(--sticky-header-height);
+    z-index: 9;
+    background: #f7f7f5;
+  }
   .badge {
     font-family: "SF Mono", Menlo, ui-monospace, monospace;
     font-size: 12px;
@@ -61,12 +86,42 @@
     color: var(--bad);
     border: 1px solid rgba(192, 54, 44, 0.22);
   }
+  .badge.warn {
+    background: var(--warn-bg);
+    color: var(--warn);
+    border: 1px solid rgba(246, 170, 0, 0.28);
+  }
   .badge.pending { background: var(--no-bg); color: var(--no); }
   .badge[hidden] { display: none; }
-  #coverage { font-size: 13px; color: #666; white-space: nowrap; }
+  #coverageWrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #666;
+    white-space: nowrap;
+  }
+  #coverageWrap[hidden] { display: none; }
+  #coverageRing {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    --pct: 0;
+    --ring-color: var(--bad);
+    background: conic-gradient(
+      var(--ring-color) 0deg calc(var(--pct) * 3.6deg),
+      #e5e7eb calc(var(--pct) * 3.6deg) 360deg
+    );
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3.5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 3.5px));
+  }
+  #coverageRing.ok { --ring-color: var(--ok); }
+  #coverageRing.warn { --ring-color: var(--warn); }
+  #coverageRing.bad { --ring-color: var(--bad); }
 
   .panel {
-    max-width: 1180px;
+    max-width: var(--page-max-width);
     margin: 20px auto;
     padding: 0 20px;
   }
@@ -114,6 +169,12 @@
     border-color: var(--accent-action-text);
   }
   button.primary:hover { background: var(--accent-action-hover); }
+  button.danger {
+    background: var(--accent-danger);
+    color: var(--accent-danger-text);
+    border-color: var(--accent-danger-text);
+  }
+  button.danger:hover { background: var(--accent-danger-hover); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
 
   table {
@@ -234,13 +295,25 @@
 
   main {
     display: none;
-    gap: 20px;
+    flex-direction: column;
     padding: 20px;
-    max-width: 1180px;
+    max-width: var(--page-max-width);
     margin: 0 auto;
   }
   main.visible { display: flex; }
-  .left { flex: 0 0 480px; }
+  .replay-columns {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .left {
+    flex: 0 1 clamp(480px, 40vw, 640px);
+    position: sticky;
+    top: calc(var(--sticky-header-height) + var(--sticky-sop-name-block));
+    align-self: flex-start;
+    max-height: calc(100vh - var(--sticky-header-height) - var(--sticky-sop-name-block) - 20px);
+    overflow-y: auto;
+  }
   .right { flex: 1; min-width: 0; }
 
   #frameImg {
@@ -308,12 +381,24 @@
   }
   .qrow {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
     padding: 8px 10px;
     background: #fff;
     border: 1px solid var(--line);
     border-radius: 8px;
+  }
+  .qrow-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .qrow-meta {
+    font-size: 11px;
+    color: #888;
+    padding-left: 2px;
+    font-variant-numeric: tabular-nums;
   }
   .qask {
     flex: 1;
@@ -360,7 +445,7 @@
     border: 1px solid var(--line);
     border-radius: 8px;
   }
-  .erow.active { border-color: #333; box-shadow: 0 0 0 2px rgba(0,0,0,0.06) inset; }
+  .erow.active { border-color: var(--accent-action); box-shadow: 0 0 0 2px rgba(0,0,0,0.06) inset; }
   .ehead {
     display: flex;
     justify-content: space-between;
@@ -413,31 +498,112 @@
   }
   #violations:empty { display: none; }
   #violations li { margin-bottom: 4px; }
-  .summary-card {
-    margin: -8px 0 22px;
+
+  #relationsPanel {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  #relationsPanel[hidden] { display: none; }
+  .relations-summary {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 12px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+  .relations-summary.all-pass {
+    background: var(--ok-bg);
+    color: var(--ok);
+  }
+  .relations-summary.has-fail {
+    background: var(--bad-bg);
+    color: var(--bad);
+  }
+  .relations-summary.none {
+    background: var(--no-bg);
+    color: #666;
+    font-weight: 500;
+  }
+  .relations-coverage-note {
+    margin: -4px 0 12px;
+    font-size: 12px;
+    color: var(--unclear);
+  }
+  #relationResults {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rrow {
     padding: 10px 12px;
     background: #fff;
     border: 1px solid var(--line);
     border-radius: 8px;
-    line-height: 1.6;
+    border-left: 4px solid #ccc;
   }
+  .rrow.pass { border-left-color: var(--ok); }
+  .rrow.fail { border-left-color: var(--bad); }
+  .rrow.neutral { border-left-color: #bbb; }
+  .rhead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 5px;
+  }
+  .rrel-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .rrel {
+    font-family: "SF Mono", Menlo, ui-monospace, monospace;
+    font-size: 12px;
+    color: #333;
+    word-break: break-word;
+  }
+  .rkind {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--no-bg);
+    color: #666;
+  }
+  .rkind.before { background: #e8f0fe; color: #1a56db; }
+  .rkind.overlaps { background: #f3e8ff; color: #7c3aed; }
+  .rkind.not { background: var(--bad-bg); color: var(--bad); }
+  .rbadge {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+  }
+  .rbadge.pass { background: var(--ok-bg); color: var(--ok); }
+  .rbadge.fail { background: var(--bad-bg); color: var(--bad); }
+  .rdetail {
+    font-size: 12px;
+    color: #555;
+    line-height: 1.45;
+  }
+  .rrow.fail .rdetail { color: #9a3b32; }
+  #allNoWarning {
+    margin: -12px 0 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--bad);
+  }
+  #allNoWarning[hidden] { display: none; }
 
   footer {
     display: none;
-    max-width: 1180px;
-    margin: 0 auto 24px;
-    padding: 0 20px;
-  }
-  footer.visible { display: block; }
-  footer h3 { font-size: 13px; color: #666; margin: 0 0 8px; }
-  footer ul { font-size: 13px; color: #444; padding-left: 20px; }
-  footer code {
-    font-family: "SF Mono", Menlo, monospace;
-    font-size: 12px;
-    background: #fff;
-    padding: 1px 5px;
-    border-radius: 4px;
-    border: 1px solid var(--line);
   }
 
   textarea {
@@ -452,7 +618,7 @@
   }
   .hint { font-size: 12px; color: #888; margin-top: 6px; }
 
-  #mockModeWarning { display: none; max-width: 1180px; margin: 16px auto 0; padding: 0 20px; }
+  #mockModeWarning { display: none; max-width: var(--page-max-width); margin: 16px auto 0; padding: 0 20px; }
   #mockModeWarning.active { display: block; }
   #mockModeWarning .warn {
     background: #fff8e6;
@@ -465,7 +631,7 @@
   }
   #fileProtocolWarning {
     display: none;
-    max-width: 1180px;
+    max-width: var(--page-max-width);
     margin: 16px auto 0;
     padding: 0 20px;
   }
@@ -491,13 +657,161 @@
     border-radius: 4px;
     border: 1px solid var(--line);
   }
+
+  .card-heading,
+  .section-heading-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .card-heading h2,
+  .section-heading-row h2,
+  .section-heading-row h3 {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+  }
+  .right .section-heading-row { margin-bottom: 8px; }
+
+  .help-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-action-text);
+    background: var(--accent-soft);
+    border: 1px solid rgba(30, 92, 80, 0.2);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    line-height: 0;
+  }
+  .help-btn:hover { background: #d4f5ed; }
+  .help-btn svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+
+  .summary-with-help {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    list-style: none;
+  }
+  .summary-with-help > span { flex: 1; min-width: 0; }
+
+  .demo-guide-card {
+    background: var(--accent-soft);
+    border-color: rgba(30, 92, 80, 0.25);
+  }
+  .demo-guide-card h2 {
+    font-size: 14px;
+    margin: 0 0 10px;
+    color: var(--accent-title);
+  }
+  .demo-guide-steps {
+    margin: 0;
+    padding-left: 1.4em;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #333;
+  }
+  .demo-guide-steps li { margin-bottom: 4px; }
+  .demo-guide-foot {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: #666;
+  }
+
+  #helpBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.12);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 100;
+  }
+  #helpBackdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  #helpPopover {
+    position: fixed;
+    z-index: 101;
+    width: min(420px, calc(100vw - 32px));
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+  }
+  #helpPopover.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .help-popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .help-popover-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-title);
+  }
+  .help-popover-close {
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    line-height: 1;
+    color: #888;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .help-popover-close:hover { background: var(--no-bg); color: #333; }
+  .help-popover-body {
+    padding: 14px 16px 16px;
+    font-size: 13px;
+    line-height: 1.65;
+    color: #444;
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+  }
+  .help-popover-body p { margin: 0 0 10px; }
+  .help-popover-body p:last-child { margin-bottom: 0; }
+  .help-popover-body ul { margin: 0 0 10px; padding-left: 1.3em; }
+  .help-popover-body li { margin-bottom: 4px; }
+  .help-popover-body strong { color: #333; }
+
+  #headerVerdictHelp[hidden] { display: none; }
 </style>
 </head>
 <body>
   <header>
     <h1 id="sopName">動画SOPチェックデモ</h1>
-    <span id="coverage"></span>
-    <button type="button" id="backToSetupBtn" style="display:none">設定に戻る</button>
+    <button type="button" class="help-btn" id="headerVerdictHelp" data-help="verdict-header" hidden aria-label="判定結果の説明を表示">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    </button>
+    <span id="coverageWrap" hidden>
+      <span id="coverage"></span>
+      <span id="coverageRing" role="img" aria-hidden="true"></span>
+    </span>
     <span id="verdictBadge" class="badge pending" hidden></span>
   </header>
 
@@ -523,8 +837,23 @@
   </div>
 
   <section class="panel" id="setupPanel">
+    <div class="card demo-guide-card">
+      <h2>デモの進め方</h2>
+      <ol class="demo-guide-steps">
+        <li><strong>デモシナリオ</strong>から例を選ぶ（SOP名・チェック項目が自動で入ります）</li>
+        <li>作業動画を選び、必要なら <strong>SOP名</strong> と <strong>動画の前提説明</strong> を確認する</li>
+        <li><strong>分析開始</strong>を押し、完了後にフレームごとの回答と最終判定を確認する</li>
+      </ol>
+      <p class="demo-guide-foot">各ブロック右の吹き出しアイコンから、機能の概要と使い方をいつでも確認できます。</p>
+    </div>
+
     <div class="card">
-      <h2>1. 動画と分析設定</h2>
+      <div class="card-heading">
+        <h2>1. 動画と分析設定</h2>
+        <button type="button" class="help-btn" data-help="video-setup" aria-label="動画と分析設定の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
       <div class="row">
         <label for="videoInput">動画ファイル</label>
         <input type="file" id="videoInput" accept="video/*">
@@ -554,7 +883,12 @@
     </div>
 
     <div class="card">
-      <h2>2. チェック項目（質問）</h2>
+      <div class="card-heading">
+        <h2>2. チェック項目（質問）</h2>
+        <button type="button" class="help-btn" data-help="check-items" aria-label="チェック項目の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
       <table id="questionsTable">
         <thead>
           <tr>
@@ -570,7 +904,12 @@
         <button type="button" id="addQuestionBtn">+ 項目を追加</button>
       </div>
       <details style="padding:0">
-        <summary style="padding:16px 18px">判定ルール（イベント・relations）</summary>
+        <summary class="summary-with-help" style="padding:16px 18px">
+          <span>判定ルール（イベント・relations）</span>
+          <button type="button" class="help-btn" data-help="judge-rules" aria-label="判定ルールの説明を表示">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </button>
+        </summary>
         <div style="padding:0 18px 16px">
           <h2 style="margin-top:0">イベント定義</h2>
           <table id="eventsTable">
@@ -613,7 +952,7 @@
     </details>
 
     <details class="card" style="padding:0">
-      <summary id="historySummary" style="padding:16px 18px">実行履歴（0件）</summary>
+      <summary id="historySummary" style="padding:16px 18px">実行履歴</summary>
       <div style="padding:0 18px 16px">
         <p class="hint">同じブラウザに直近5件まで保存します。「表示」でフレーム・回答・判定を含む再生画面を復元できます。5件を超えると古い結果から削除されます。フレーム画像を含むため、保存容量が足りない場合は保存に失敗することがあります。</p>
         <div id="historyList" class="history-list"></div>
@@ -622,6 +961,8 @@
   </section>
 
   <main id="replayMain">
+    <p id="replaySopName" class="replay-sop-name"></p>
+    <div class="replay-columns">
     <section class="left">
       <img id="frameImg" alt="frame">
       <div class="controls">
@@ -630,39 +971,256 @@
         <button id="nextBtn" type="button">▶</button>
         <input type="range" id="scrubber" min="0" value="0" step="1">
         <span id="timeLabel"></span>
+        <button type="button" class="help-btn" data-help="frame-player" aria-label="フレーム再生の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
       </div>
       <details open>
         <summary>このフレームでVLMが実際に返したJSON(生出力)</summary>
         <pre id="rawOutput"></pre>
       </details>
       <details>
-        <summary>実行履歴（直近5件）</summary>
+        <summary class="summary-with-help">
+          <span>実行履歴</span>
+          <button type="button" class="help-btn" data-help="replay-history" aria-label="結果画面の実行履歴の説明を表示">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </button>
+        </summary>
         <div id="replayHistoryList" class="history-list" style="padding:12px"></div>
       </details>
     </section>
 
     <section class="right">
-      <h2>このフレームの回答</h2>
+      <div class="section-heading-row">
+        <h2>このフレームの回答</h2>
+        <button type="button" class="help-btn" data-help="frame-answers" aria-label="フレーム回答の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
+      <div id="allNoWarning" class="hint" hidden></div>
       <div id="questions"></div>
 
-      <h2>全フレームの回答傾向</h2>
-      <div id="analysisSummary" class="hint summary-card"></div>
-
-      <h2>イベント検出（回答との対応）</h2>
+      <div class="section-heading-row">
+        <h2>イベント検出（回答との対応）</h2>
+        <button type="button" class="help-btn" data-help="event-detection" aria-label="イベント検出の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
       <div id="events"></div>
-      <ul id="violations"></ul>
+
+      <div id="relationsPanel">
+        <div class="section-heading-row">
+          <h2>手順関係（relations）の評価</h2>
+          <button type="button" class="help-btn" data-help="relations-check" aria-label="relations評価の説明を表示">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </button>
+        </div>
+        <div id="relationsSummary" class="relations-summary none"></div>
+        <div id="relationsCoverageNote" class="relations-coverage-note" hidden></div>
+        <div id="relationResults"></div>
+      </div>
     </section>
+    </div>
   </main>
 
-  <footer id="replayFooter">
-    <h3>relations(このSOPが要求する関係)</h3>
-    <ul id="relations"></ul>
-  </footer>
+  <div id="helpBackdrop" hidden></div>
+  <div id="helpPopover" hidden role="dialog" aria-modal="true" aria-labelledby="helpPopoverTitle">
+    <div class="help-popover-header">
+      <h3 id="helpPopoverTitle"></h3>
+      <button type="button" class="help-popover-close" id="helpPopoverClose" aria-label="説明を閉じる">×</button>
+    </div>
+    <div class="help-popover-body" id="helpPopoverBody"></div>
+  </div>
 
 <script>
 const DEFAULT_TITLE = "動画SOPチェックデモ";
 const HISTORY_STORAGE_KEY = "videoAnalysis.replayHistory.v2";
 const HISTORY_LIMIT = 5;
+
+const HELP_TOPICS = {
+  "video-setup": {
+    title: "動画と分析設定",
+    html: `
+      <p>分析に使う動画と、AIへの前提情報を指定します。</p>
+      <ul>
+        <li><strong>動画ファイル</strong> — 確認したい作業動画。選ぶと「分析開始」が押せます。</li>
+        <li><strong>サンプリング間隔</strong> — 何秒おきに1枚画像を見るか。短いほど細かく見ますが、時間がかかります。</li>
+        <li><strong>SOP名</strong> — 今回のチェックの名前（画面上部にも表示されます）。</li>
+        <li><strong>動画の前提説明</strong> — 撮影状況や写っているものの説明。AIが状況を理解しやすくなります。</li>
+      </ul>
+      <p><strong>分析開始</strong> を押すと進捗バーが表示されます。完了すると結果画面に切り替わります。実行中は同じボタンで中断できます。</p>
+    `
+  },
+  "check-items": {
+    title: "チェック項目（質問）",
+    html: `
+      <p>動画の各場面でAIに聞く <strong>確認したいこと</strong> の一覧です。</p>
+      <ul>
+        <li><strong>ID</strong> — 項目の識別名（短い英数字）。</li>
+        <li><strong>質問文</strong> — AIへの質問。「手袋をしているか」など、映像で答えられる内容にします。</li>
+        <li><strong>回答値</strong> — 想定する答え（多くは yes / no）。unclear は「判断できない」です。</li>
+      </ul>
+      <p>「+ 項目を追加」「削除」で項目の編集ができます。デモではシナリオ選択で入った内容のままでも問題ありません。</p>
+    `
+  },
+  "judge-rules": {
+    title: "判定ルール",
+    html: `
+      <p>チェック項目への回答を組み合わせ、<strong>手順が守られているか</strong> を自動判定するルールです。</p>
+      <ul>
+        <li><strong>イベント</strong> — 「この条件がそろった瞬間」を表します（例: つまみ操作、炎が見える）。</li>
+        <li><strong>relations</strong> — イベント同士の関係。順番（before）や同時（overlaps）、禁止（not）を書きます。</li>
+        <li><strong>defaults</strong> — 判定の細かい調整（許容時間や、何フレーム続いたら認めるかなど）。</li>
+      </ul>
+      <p>通常のデモではシナリオに入っている設定をそのまま使えます。詳細編集は上級者向けです。</p>
+    `
+  },
+  "verdict-header": {
+    title: "最終判定と確認率",
+    html: `
+      <p>画面上部に、分析全体の結果が表示されます。</p>
+      <ul>
+        <li><strong>PASS / FAIL</strong> — SOPのルールを満たしたかの最終判定です。</li>
+        <li><strong>coverage（確認率）</strong> — チェック項目のうち、動画内で十分に確認できた割合です。低いと判定の信頼性が下がります。</li>
+        <li><strong>タイトル（SOP名）</strong> — クリックすると設定画面に戻れます。</li>
+      </ul>
+      <p>FAIL のときは、結果画面の「違反」やイベント検出で、どこが問題だったかを追えます。</p>
+    `
+  },
+  "frame-player": {
+    title: "フレーム再生",
+    html: `
+      <p>分析で取り出した画像を、時間順に確認できます。</p>
+      <ul>
+        <li><strong>◀ / ▶</strong> — 前後のフレームへ移動</li>
+        <li><strong>▶ 再生</strong> — 自動で順送り（もう一度押すと停止）</li>
+        <li><strong>スライダー</strong> — 任意の位置へジャンプ</li>
+        <li>右側には、そのフレームでのAIの回答とイベント状態が連動して表示されます</li>
+      </ul>
+    `
+  },
+  "frame-answers": {
+    title: "このフレームの回答",
+    html: `
+      <p>今表示しているフレームについて、各チェック項目への <strong>AIの回答</strong> です。</p>
+      <ul>
+        <li><strong>yes</strong> — 「はい・見える・している」</li>
+        <li><strong>no</strong> — 「いいえ・見えない・していない」</li>
+        <li><strong>unclear</strong> — 画質や角度の都合で判断できない</li>
+      </ul>
+      <p>フレームを変えると回答も切り替わります。すべて no ばかりのときは警告が出ることがあります。</p>
+    `
+  },
+  "event-detection": {
+    title: "イベント検出",
+    html: `
+      <p>チェック項目の回答から、「手順の各ステップがいつ起きたか」をまとめた一覧です。</p>
+      <ul>
+        <li>緑のタイムライン — そのイベントが検出された時間帯</li>
+        <li>縦線 — 今見ているフレームの位置</li>
+        <li>状態表示 — 検出済み / 未検出 / 不要 など</li>
+      </ul>
+      <p>下の <strong>手順関係（relations）の評価</strong> で、順番・同時・禁止ルールごとの OK/NG を確認できます。</p>
+    `
+  },
+  "relations-check": {
+    title: "手順関係（relations）の評価",
+    html: `
+      <p>SOP が要求する <strong>手順の関係</strong> を1件ずつ Python 判定エンジンが評価した結果です。</p>
+      <ul>
+        <li><strong>順序 (before)</strong> — 左の出来事が、右より先に起きているか</li>
+        <li><strong>同時 (overlaps)</strong> — 検出区間が重なっているか</li>
+        <li><strong>禁止 (not)</strong> — 起きてはいけないイベントが検出されていないか</li>
+      </ul>
+      <p>各カードに <strong>OK</strong> / <strong>NG</strong> と、根拠（時刻や検出状況）が表示されます。上部のサマリーで全体の達成数も確認できます。</p>
+    `
+  },
+  "replay-history": {
+    title: "実行履歴（結果画面）",
+    html: `
+      <p>設定画面と同じ保存済み結果へ、結果画面からもアクセスできます。</p>
+      <p>別の過去結果を選んで「表示」を押すと、その分析結果に切り替わります。デモで複数パターンを比較するときに使えます。</p>
+    `
+  }
+};
+
+let activeHelpId = null;
+const helpBackdrop = document.getElementById("helpBackdrop");
+const helpPopover = document.getElementById("helpPopover");
+const helpPopoverTitle = document.getElementById("helpPopoverTitle");
+const helpPopoverBody = document.getElementById("helpPopoverBody");
+const helpPopoverClose = document.getElementById("helpPopoverClose");
+const headerVerdictHelp = document.getElementById("headerVerdictHelp");
+
+function closeHelp() {
+  activeHelpId = null;
+  helpBackdrop.classList.remove("visible");
+  helpPopover.classList.remove("visible");
+  helpBackdrop.hidden = true;
+  helpPopover.hidden = true;
+}
+
+function positionHelpPopover(anchor) {
+  const rect = anchor.getBoundingClientRect();
+  const margin = 16;
+  const gap = 8;
+  helpPopover.style.visibility = "hidden";
+  helpPopover.classList.add("visible");
+  const popRect = helpPopover.getBoundingClientRect();
+  let top = rect.bottom + gap;
+  let left = rect.left;
+  if (left + popRect.width > window.innerWidth - margin) {
+    left = Math.max(margin, window.innerWidth - popRect.width - margin);
+  }
+  if (top + popRect.height > window.innerHeight - margin) {
+    top = Math.max(margin, rect.top - popRect.height - gap);
+  }
+  helpPopover.style.top = `${top}px`;
+  helpPopover.style.left = `${left}px`;
+  helpPopover.style.visibility = "visible";
+}
+
+function openHelp(topicId, anchor) {
+  const topic = HELP_TOPICS[topicId];
+  if (!topic) return;
+  if (activeHelpId === topicId) {
+    closeHelp();
+    return;
+  }
+  activeHelpId = topicId;
+  helpPopoverTitle.textContent = topic.title;
+  helpPopoverBody.innerHTML = topic.html;
+  helpBackdrop.hidden = false;
+  helpPopover.hidden = false;
+  requestAnimationFrame(() => {
+    helpBackdrop.classList.add("visible");
+    positionHelpPopover(anchor);
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-help]");
+  if (btn) {
+    e.preventDefault();
+    e.stopPropagation();
+    openHelp(btn.dataset.help, btn);
+    return;
+  }
+  if (e.target === helpBackdrop) closeHelp();
+});
+
+helpPopoverClose.addEventListener("click", closeHelp);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && activeHelpId) closeHelp();
+});
+
+window.addEventListener("resize", () => {
+  if (!activeHelpId) return;
+  const btn = document.querySelector(`[data-help="${activeHelpId}"]`);
+  if (btn) positionHelpPopover(btn);
+});
+
 const SOP_ASSETS = [
   {
     id: "konro_inspection",
@@ -804,17 +1362,18 @@ const defaultOrderToleranceInput = document.getElementById("defaultOrderToleranc
 const defaultMinFramesInput = document.getElementById("defaultMinFrames");
 const defaultMaxGapFramesInput = document.getElementById("defaultMaxGapFrames");
 const analyzeBtn = document.getElementById("analyzeBtn");
-const backToSetupBtn = document.getElementById("backToSetupBtn");
+let analysisAbortController = null;
+let analysisRunning = false;
+const sopName = document.getElementById("sopName");
+const replaySopName = document.getElementById("replaySopName");
 const progressWrap = document.getElementById("progressWrap");
 const progressFill = document.getElementById("progressFill");
 const progressText = document.getElementById("progressText");
 const errorBox = document.getElementById("errorBox");
 const historyList = document.getElementById("historyList");
-const historySummary = document.getElementById("historySummary");
 const replayHistoryList = document.getElementById("replayHistoryList");
 const setupPanel = document.getElementById("setupPanel");
 const replayMain = document.getElementById("replayMain");
-const replayFooter = document.getElementById("replayFooter");
 const scrubber = document.getElementById("scrubber");
 const fileProtocolWarning = document.getElementById("fileProtocolWarning");
 const mockModeWarning = document.getElementById("mockModeWarning");
@@ -869,6 +1428,28 @@ function setProgress(current, total, label) {
 
 function hideProgress() {
   progressWrap.classList.remove("active");
+}
+
+function setAnalyzeButtonIdle() {
+  analyzeBtn.textContent = "分析開始";
+  analyzeBtn.classList.remove("danger");
+  analyzeBtn.classList.add("primary");
+  analyzeBtn.disabled = !(videoInput.files && videoInput.files.length > 0);
+}
+
+function setAnalyzeButtonCancel() {
+  analyzeBtn.textContent = "キャンセル";
+  analyzeBtn.classList.remove("primary");
+  analyzeBtn.classList.add("danger");
+  analyzeBtn.disabled = false;
+}
+
+function cancelAnalysis() {
+  analysisAbortController?.abort();
+}
+
+function isAbortError(err, signal) {
+  return err?.name === "AbortError" || Boolean(signal?.aborted);
 }
 
 function trimHistoryEntries(entries) {
@@ -979,10 +1560,6 @@ function renderHistoryList(container) {
 function renderHistoryLists() {
   renderHistoryList(historyList);
   renderHistoryList(replayHistoryList);
-  if (historySummary) {
-    const count = trimHistoryEntries(loadStoredHistoryEntries()).length;
-    historySummary.textContent = `実行履歴（${count}件）`;
-  }
 }
 
 function createRemoveButton(onRemove) {
@@ -1198,7 +1775,7 @@ document.getElementById("addEventBtn").addEventListener("click", () => {
 });
 
 videoInput.addEventListener("change", () => {
-  analyzeBtn.disabled = !videoInput.files || videoInput.files.length === 0;
+  if (!analysisRunning) setAnalyzeButtonIdle();
 });
 
 function readConfigFromEditor() {
@@ -1225,7 +1802,7 @@ function waitForVideoEvent(target, eventName) {
   });
 }
 
-async function extractFrames(videoFile, intervalSec) {
+async function extractFrames(videoFile, intervalSec, signal) {
   const url = URL.createObjectURL(videoFile);
   const video = document.createElement("video");
   video.src = url;
@@ -1244,6 +1821,10 @@ async function extractFrames(videoFile, intervalSec) {
   const frames = [];
 
   for (let t = 0; t <= duration + 0.001; t += intervalSec) {
+    if (signal?.aborted) {
+      URL.revokeObjectURL(url);
+      throw new DOMException("Aborted", "AbortError");
+    }
     const target = Math.min(t, duration);
     if (Math.abs(video.currentTime - target) > 1e-3) {
       video.currentTime = target;
@@ -1320,16 +1901,16 @@ function normalizeAnalyzeResponse(data, questions) {
   throw new Error("VLM応答に answers がありません\nraw preview: " + preview);
 }
 
-async function ensureServerReady() {
+async function ensureServerReady(signal) {
   if (isFileProtocol) return;
-  const statusResp = await fetch("/api/status");
+  const statusResp = await fetch("/api/status", { signal });
   if (!statusResp.ok) {
     throw new Error(`サーバー応答異常 (${statusResp.status})。${window.location.origin} が server.py の URL と一致しているか確認してください。`);
   }
   const status = await statusResp.json();
   if (status.mode === "vlm" && !status.ready) {
     setProgress(0, 1, "VLMモデルをロード中（初回は数分かかります）...");
-    const warmResp = await fetch("/api/warmup", { method: "POST" });
+    const warmResp = await fetch("/api/warmup", { method: "POST", signal });
     if (!warmResp.ok) {
       const body = await warmResp.text();
       throw new Error(`VLMロード失敗: ${body.slice(0, 300)}`);
@@ -1337,7 +1918,7 @@ async function ensureServerReady() {
   }
 }
 
-async function analyzeFrame(frame, questions, apiUrl, domainHint) {
+async function analyzeFrame(frame, questions, apiUrl, domainHint, signal) {
   let resp;
   try {
     resp = await fetch(apiUrl, {
@@ -1348,9 +1929,11 @@ async function analyzeFrame(frame, questions, apiUrl, domainHint) {
         questions,
         t: frame.t,
         domain_hint: domainHint
-      })
+      }),
+      signal
     });
   } catch (err) {
+    if (err?.name === "AbortError") throw err;
     const hint = window.location.protocol === "file:"
       ? "file:// で開いています。server.py 起動後に表示された http://127.0.0.1:PORT/replay.html を開いてください。"
       : `接続先: ${window.location.origin}${apiUrl}\nserver.py が同じポートで起動しているか確認してください（古い 8769 等は使わない）。`;
@@ -1425,7 +2008,7 @@ function summarizeDetection(frames, questions) {
   return { stats, allNo };
 }
 
-async function judgeViaServer(config, frames) {
+async function judgeViaServer(config, frames, signal) {
   const sopDef = buildSopDef(config);
   const judgeFrames = frames.map((frame, index) => ({
     idx: index,
@@ -1435,7 +2018,8 @@ async function judgeViaServer(config, frames) {
   const resp = await fetch("/api/judge", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ sop_def: sopDef, frames: judgeFrames })
+    body: JSON.stringify({ sop_def: sopDef, frames: judgeFrames }),
+    signal
   });
   if (!resp.ok) {
     const body = await resp.text();
@@ -1462,6 +2046,7 @@ function buildAnalysisResult(config, frames, judgeResult) {
     verdict: judgeResult.verdict,
     coverage: judgeResult.coverage,
     violations: judgeResult.violations || [],
+    relationResults: judgeResult.relation_results || [],
     events: judgeResult.events || {},
     n_frames: frames.length,
     frames,
@@ -1505,28 +2090,31 @@ async function runAnalysis() {
     return;
   }
 
-  analyzeBtn.disabled = true;
-  backToSetupBtn.style.display = "none";
+  analysisAbortController = new AbortController();
+  const signal = analysisAbortController.signal;
+  analysisRunning = true;
+  setAnalyzeButtonCancel();
 
   try {
     const intervalSec = parseFloat(sampleIntervalInput.value) || 1;
     setProgress(0, 1, "フレーム抽出中...");
-    const frames = await extractFrames(file, intervalSec);
+    const frames = await extractFrames(file, intervalSec, signal);
 
-    await ensureServerReady();
+    await ensureServerReady(signal);
 
     const apiUrl = apiUrlInput.value.trim() || "/api/vlm/analyze";
     const domainHint = domainHintInput.value.trim() || "これは作業動画の1フレームです";
     for (let i = 0; i < frames.length; i++) {
+      if (signal.aborted) throw new DOMException("Aborted", "AbortError");
       setProgress(i, frames.length, `VLM分析中... frame ${i + 1}/${frames.length} (t=${frames[i].t}s)`);
-      const result = await analyzeFrame(frames[i], config.questions, apiUrl, domainHint);
+      const result = await analyzeFrame(frames[i], config.questions, apiUrl, domainHint, signal);
       frames[i].answers = result.answers;
       frames[i].raw = result.raw;
       frames[i].probs = result.probs || {};
     }
 
     setProgress(frames.length, frames.length, "SOP判定中 (Python judge)...");
-    const judgeResult = await judgeViaServer(config, frames);
+    const judgeResult = await judgeViaServer(config, frames, signal);
     DATA = buildAnalysisResult(config, frames, judgeResult);
     const historySaved = saveResultToHistory(DATA);
     showReplay(DATA);
@@ -1534,59 +2122,169 @@ async function runAnalysis() {
       window.alert("分析結果は表示できましたが、履歴保存に失敗しました。ブラウザの保存容量を超えている可能性があります。");
     }
   } catch (err) {
-    showError(String(err.message || err));
+    if (!isAbortError(err, signal)) {
+      showError(String(err.message || err));
+    }
   } finally {
-    analyzeBtn.disabled = !(videoInput.files && videoInput.files.length > 0);
+    analysisRunning = false;
+    analysisAbortController = null;
+    setAnalyzeButtonIdle();
     hideProgress();
   }
 }
 
-function updateHeader() {
-  document.getElementById("sopName").textContent = DATA.sop.name;
-  document.getElementById("coverage").textContent = `coverage ${Math.round(DATA.coverage * 100)}%`;
+function setCoverageDisplay(pct) {
+  const rounded = Math.round(pct);
+  const wrap = document.getElementById("coverageWrap");
+  const ring = document.getElementById("coverageRing");
+  document.getElementById("coverage").textContent = `coverage ${rounded}%`;
+  wrap.hidden = false;
+  ring.style.setProperty("--pct", rounded);
+  ring.classList.remove("ok", "warn", "bad");
+  if (rounded >= 100) ring.classList.add("ok");
+  else if (rounded >= 80) ring.classList.add("warn");
+  else ring.classList.add("bad");
+  ring.setAttribute("aria-label", `coverage ${rounded}%`);
+}
+
+function clearCoverageDisplay() {
+  document.getElementById("coverage").textContent = "";
+  const wrap = document.getElementById("coverageWrap");
+  const ring = document.getElementById("coverageRing");
+  wrap.hidden = true;
+  ring.style.removeProperty("--pct");
+  ring.classList.remove("ok", "warn", "bad");
+  ring.removeAttribute("aria-label");
+}
+
+function setVerdictBadgeDisplay(coverage, verdict) {
+  const rounded = Math.round(coverage * 100);
   const badge = document.getElementById("verdictBadge");
   badge.hidden = false;
-  badge.textContent = DATA.verdict;
-  badge.className = "badge " + (DATA.verdict === "PASS" ? "pass" : "fail");
+  if (verdict === "PASS" && rounded >= 100) {
+    badge.textContent = "PASS";
+    badge.className = "badge pass";
+  } else if (rounded >= 80 && rounded <= 99) {
+    badge.textContent = "WARN";
+    badge.className = "badge warn";
+  } else {
+    badge.textContent = "FAIL";
+    badge.className = "badge fail";
+  }
 }
 
-function renderRelationsList() {
-  const relUl = document.getElementById("relations");
-  relUl.innerHTML = "";
-  DATA.relations.forEach(r => {
-    const li = document.createElement("li");
-    const code = document.createElement("code");
-    code.textContent = r;
-    li.appendChild(code);
-    relUl.appendChild(li);
-  });
+function updateHeader() {
+  sopName.textContent = DEFAULT_TITLE;
+  replaySopName.textContent = DATA.sop.name;
+  setCoverageDisplay(DATA.coverage * 100);
+  setVerdictBadgeDisplay(DATA.coverage, DATA.verdict);
 }
 
-function renderAnalysisSummary() {
-  const box = document.getElementById("analysisSummary");
-  if (!DATA?.detection) {
+function relationKind(rel) {
+  const trimmed = String(rel).trim();
+  if (/^not\s+/i.test(trimmed)) return { kind: "not", label: "禁止" };
+  if (/\s+before\s+/i.test(trimmed)) return { kind: "before", label: "順序" };
+  if (/\s+overlaps\s+/i.test(trimmed)) return { kind: "overlaps", label: "同時" };
+  return { kind: "unknown", label: "関係" };
+}
+
+function appendRelationRow(container, rel, passed, message) {
+  const kind = relationKind(rel);
+  const row = document.createElement("div");
+  row.className = "rrow " + (passed == null ? "neutral" : passed ? "pass" : "fail");
+
+  const head = document.createElement("div");
+  head.className = "rhead";
+
+  const relWrap = document.createElement("div");
+  relWrap.className = "rrel-wrap";
+  const code = document.createElement("code");
+  code.className = "rrel";
+  code.textContent = rel;
+  const kindEl = document.createElement("span");
+  kindEl.className = "rkind " + kind.kind;
+  kindEl.textContent = kind.label;
+  relWrap.appendChild(code);
+  relWrap.appendChild(kindEl);
+
+  const badge = document.createElement("span");
+  badge.className = "rbadge " + (passed == null ? "" : passed ? "pass" : "fail");
+  badge.textContent = passed == null ? "—" : passed ? "OK" : "NG";
+
+  head.appendChild(relWrap);
+  head.appendChild(badge);
+  row.appendChild(head);
+
+  if (message) {
+    const detail = document.createElement("div");
+    detail.className = "rdetail";
+    detail.textContent = message;
+    row.appendChild(detail);
+  }
+
+  container.appendChild(row);
+}
+
+function renderRelationResults() {
+  const panel = document.getElementById("relationsPanel");
+  const summaryEl = document.getElementById("relationsSummary");
+  const coverageNote = document.getElementById("relationsCoverageNote");
+  const box = document.getElementById("relationResults");
+  if (!panel || !summaryEl || !coverageNote || !box) return;
+
+  const relations = DATA?.relations || [];
+  const results = DATA?.relationResults;
+
+  if (relations.length === 0) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  box.innerHTML = "";
+
+  if (DATA.coverage < 1) {
+    coverageNote.hidden = false;
+    coverageNote.textContent =
+      `※ 必要イベントの未検出あり（coverage ${Math.round(DATA.coverage * 100)}%）`;
+  } else {
+    coverageNote.hidden = true;
+    coverageNote.textContent = "";
+  }
+
+  if (Array.isArray(results) && results.length > 0) {
+    const passed = results.filter(r => r.passed).length;
+    const total = results.length;
+    summaryEl.className = "relations-summary " + (passed === total ? "all-pass" : "has-fail");
+    summaryEl.textContent = passed === total
+      ? `${total} / ${total} ルールをすべて満たしています`
+      : `${passed} / ${total} ルールを満たしています（${total - passed} 件の問題）`;
+
+    results.forEach(r => {
+      appendRelationRow(box, r.relation, r.passed, r.message);
+    });
+    return;
+  }
+
+  summaryEl.className = "relations-summary none";
+  summaryEl.textContent = "評価結果がありません。再分析すると各ルールの OK/NG が表示されます。";
+  relations.forEach(rel => appendRelationRow(box, rel, null, ""));
+}
+
+function detectionStatForQuestion(questionId) {
+  return DATA?.detection?.stats?.find(s => s.id === questionId) ?? null;
+}
+
+function renderAllNoWarning() {
+  const box = document.getElementById("allNoWarning");
+  if (!box) return;
+  if (!DATA?.detection?.allNo) {
+    box.hidden = true;
     box.textContent = "";
     return;
   }
-  const lines = DATA.detection.stats.map(s =>
-    `項目 ${escapeHtml(s.id)}: yes が ${s.yesCount}/${s.total} フレーム - ${escapeHtml(s.ask)}`
-  );
-  let html = lines.join("<br>");
-  if (DATA.detection.allNo) {
-    html += "<br><strong style='color:var(--bad)'>全フレームで全項目 no です。</strong> "
-      + "モックモードか、動画の前提説明・質問文・サンプリング間隔(0.5秒など)を見直してください。";
-  }
-  box.innerHTML = html;
-}
-
-function renderViolations() {
-  const violUl = document.getElementById("violations");
-  violUl.innerHTML = "";
-  DATA.violations.forEach(v => {
-    const li = document.createElement("li");
-    li.textContent = "要確認: " + formatViolationText(v);
-    violUl.appendChild(li);
-  });
+  box.hidden = false;
+  box.textContent =
+    "全フレームで全項目 no です。モックモードか、動画の前提説明・質問文・サンプリング間隔(0.5秒など)を見直してください。";
 }
 
 function escapeHtml(value) {
@@ -1620,18 +2318,7 @@ function formatEvidence(evidence) {
   return formatted.join('<span class="qref"> and </span>');
 }
 
-function formatViolationText(violation) {
-  const match = /^(.*)\s+\((\w+)==(\w+)\)$/.exec(violation);
-  if (!match) return violation;
-
-  const [, message, questionId, expectedValue] = match;
-  const question = questionById(questionId);
-  if (!question) return violation;
-
-  return `${message}（根拠: 項目 ${question.id}「${question.ask}」が ${expectedValue}）`;
-}
-
-function pillClass(v) {
+function questionById(questionId) {
   if (v === "yes") return "pill yes";
   if (v === "unclear") return "pill unclear";
   return "pill no";
@@ -1643,15 +2330,22 @@ function renderQuestions(frame) {
   DATA.questions.forEach(q => {
     const val = frame.answers[q.id] ?? "?";
     const prob = frame.probs[q.id] ? frame.probs[q.id][val] : null;
+    const stat = detectionStatForQuestion(q.id);
+    const metaHtml = stat
+      ? `<div class="qrow-meta">yes ${stat.yesCount}/${stat.total}</div>`
+      : "";
     const row = document.createElement("div");
     row.className = "qrow";
     row.innerHTML = `
-      <span class="qask">
-        <span class="qid">項目 ${escapeHtml(q.id)}</span>
-        <span class="qtext">${escapeHtml(q.ask)}</span>
-      </span>
-      <span class="prob">${prob != null ? Math.round(prob * 100) + "%" : ""}</span>
-      <span class="${pillClass(val)}">${escapeHtml(val)}</span>
+      <div class="qrow-main">
+        <span class="qask">
+          <span class="qid">項目 ${escapeHtml(q.id)}</span>
+          <span class="qtext">${escapeHtml(q.ask)}</span>
+        </span>
+        <span class="prob">${prob != null ? Math.round(prob * 100) + "%" : ""}</span>
+        <span class="${pillClass(val)}">${escapeHtml(val)}</span>
+      </div>
+      ${metaHtml}
     `;
     box.appendChild(row);
   });
@@ -1743,15 +2437,14 @@ function showReplay(data) {
 
   setupPanel.style.display = "none";
   replayMain.classList.add("visible");
-  replayFooter.classList.add("visible");
-  backToSetupBtn.style.display = "inline-block";
+  sopName.classList.add("nav-link");
+  headerVerdictHelp.hidden = false;
   renderHistoryLists();
 
   idx = 0;
   updateHeader();
-  renderRelationsList();
-  renderViolations();
-  renderAnalysisSummary();
+  renderRelationResults();
+  renderAllNoWarning();
   render();
 }
 
@@ -1761,19 +2454,29 @@ function showSetup() {
   notOnly = new Set();
   setupPanel.style.display = "block";
   replayMain.classList.remove("visible");
-  replayFooter.classList.remove("visible");
-  backToSetupBtn.style.display = "none";
+  sopName.classList.remove("nav-link");
+  headerVerdictHelp.hidden = true;
+  closeHelp();
+  replaySopName.textContent = "";
   renderHistoryLists();
-  document.getElementById("sopName").textContent = DEFAULT_TITLE;
-  document.getElementById("coverage").textContent = "";
+  sopName.textContent = DEFAULT_TITLE;
+  clearCoverageDisplay();
   const badge = document.getElementById("verdictBadge");
   badge.hidden = true;
   badge.textContent = "";
   badge.className = "badge pending";
 }
 
-analyzeBtn.addEventListener("click", runAnalysis);
-backToSetupBtn.addEventListener("click", showSetup);
+analyzeBtn.addEventListener("click", () => {
+  if (analysisRunning) {
+    cancelAnalysis();
+  } else {
+    runAnalysis();
+  }
+});
+sopName.addEventListener("click", () => {
+  if (replayMain.classList.contains("visible")) showSetup();
+});
 
 document.getElementById("playBtn").addEventListener("click", () => {
   if (!DATA) return;

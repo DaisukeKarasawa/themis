@@ -97,6 +97,7 @@ python src/cli.py judge \
 - durable な嗜好・事実が出たら `AGENTS.md` を更新する（忘れない）。
 - Git 管理不要と明らかなパスは `.gitignore` に追記する（忘れない）。
 - デモ UI では本線（動画設定・チェック項目・CTA）を常時表示し、シナリオプリセット・実行履歴・判定ルール（イベント・relations）などメイン機能以外は `<details>` でデフォルト折りたたみにする。判定ルールはチェック項目カード内のネスト `<details>`。
+- デモは非エンジニア向け。`replay.html` には文脈付きヘルプ（ブロック横の吹き出しアイコン→クリックでポップオーバー、簡潔な非技術者向け文面）を埋め込む。ヘルプボタンはアイコンのみ（「説明」ラベル非表示、`aria-label` は維持）。設定画面の「デモの進め方」「デモシナリオ」「実行履歴」にはヘルプを付けない。
 
 ## Learned Workspace Facts
 
@@ -105,7 +106,10 @@ python src/cli.py judge \
 - VLM ソースのデフォルト解決順（`VLM_SRC` 未設定時）: プロジェクト内 `small_vlm_video_analysis/src` → 兄弟 `../small_vlm_video_analysis/src`。
 - リモート `origin` は `https://github.com/DaisukeKarasawa/video-analysis.git`、デフォルトブランチは `main`。ラッパー開発は `feat/vlm-replay-wrapper` など feature ブランチで進める。
 - デモ用 SOP プリセット（`desk_task` / `desk_cleanup_check` / `safety_equipment` 等）は `replay.html` の `SOP_ASSETS` に埋め込み。高度な設定は `eventDefs` と `relations`（`before` / `overlaps` / `not`）で表現する。
-- `#setupPanel` の並び: 1. 動画と分析設定 → 2. チェック項目（内側に折りたたみの判定ルール: イベント・relations）→ 折りたたみ（デモシナリオ・実行履歴）。履歴 summary には件数（例: `実行履歴（2件）`）を出す。
+- `#setupPanel` の並び: 0. デモの進め方（常時表示）→ 1. 動画と分析設定 → 2. チェック項目（内側に折りたたみの判定ルール: イベント・relations）→ 折りたたみ（デモシナリオ・実行履歴）。履歴 summary は `実行履歴` のみ（件数表記なし）。
+- `replay.html` のページ幅は `:root` の `--page-max-width`（例: `min(1680px, calc(100vw - 32px))`）で制御する。旧 `1180px` 固定上限は使わない。
+- replay 画面は `section.left`（動画・コントロール）を sticky、`section.right` が通常フローで縦スクロールを駆動する。
+- relations の PASS/FAIL 判定結果は replay 画面 `section.right` 下部（フレーム回答・イベント検出の近く）に視覚表示する。
 - `replay.html` の実行履歴は localStorage キー `videoAnalysis.replayHistory.v2` に直近 5 件を保存し、分析 `result` 全文（フレーム含む）を保持する。「表示」は `showReplay` でリプレイビューを復元する。メタデータのみのレガシー項目はサマリー alert にフォールバックする。base64 フレームが大きいため localStorage 容量超過で保存失敗しうる。
 - 設計 spec / 実装 plan は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。
 
