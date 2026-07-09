@@ -22,6 +22,8 @@ def test_correct_sop_passes():
     assert result.verdict == "PASS", result.violations
     assert result.coverage == 1.0
     assert result.violations == []
+    assert len(result.relation_checks) == len(sop["relations"])
+    assert all(r.passed for r in result.relation_checks)
 
 
 def test_wrong_order_sop_fails_with_correct_reason():

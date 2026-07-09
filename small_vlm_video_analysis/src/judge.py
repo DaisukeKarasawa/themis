@@ -144,16 +144,34 @@ def not_only_events(relation_strs: list[str]) -> set[str]:
     return {NOT_RE.match(r).group(1) for r in relation_strs if NOT_RE.match(r)}
 
 
-def check_relations(relation_strs: list[str], events: dict[str, Run | None],
-                     tolerance_s: float = 0.0, gap_tolerance_s: float = 0.0) -> list[str]:
-    """relations(文字列のリスト)を評価し、違反メッセージのリストを返す。空なら違反なし。"""
-    violations = []
+@dataclass
+class RelationCheck:
+    relation: str
+    passed: bool
+    message: str
+
+
+def evaluate_relations(relation_strs: list[str], events: dict[str, Run | None],
+                       tolerance_s: float = 0.0, gap_tolerance_s: float = 0.0) -> list[RelationCheck]:
+    """relations を1件ずつ評価し、UI表示用の結果リストを返す。"""
+    results: list[RelationCheck] = []
     for rel in relation_strs:
         m_not = NOT_RE.match(rel)
         if m_not:
             name = m_not.group(1)
             if events.get(name) is not None:
-                violations.append(f"「{name}」は検出されてはいけないが、t={events[name].t}sで検出された")
+                run = events[name]
+                results.append(RelationCheck(
+                    relation=rel,
+                    passed=False,
+                    message=f"「{name}」は検出されてはいけないが、t={run.t}sで検出された",
+                ))
+            else:
+                results.append(RelationCheck(
+                    relation=rel,
+                    passed=True,
+                    message=f"「{name}」は検出されていない（禁止事項を満たしている）",
+                ))
             continue
 
         m = REL_RE.match(rel)
@@ -163,22 +181,53 @@ def check_relations(relation_strs: list[str], events: dict[str, Run | None],
         a, b = events.get(a_name), events.get(b_name)
         if a is None or b is None:
             missing = a_name if a is None else b_name
-            violations.append(f"「{missing}」が検出されていないため関係「{rel}」を評価できない")
+            results.append(RelationCheck(
+                relation=rel,
+                passed=False,
+                message=f"「{missing}」が検出されていないため関係「{rel}」を評価できない",
+            ))
             continue
 
         if op == "before":
             if b.t < a.t - tolerance_s:
-                violations.append(f"「{a_name}」(t={a.t}s)の後に「{b_name}」(t={b.t}s)"
-                                   f"が来るはずが、検出順序は逆だった")
+                results.append(RelationCheck(
+                    relation=rel,
+                    passed=False,
+                    message=(f"「{a_name}」(t={a.t}s)の後に「{b_name}」(t={b.t}s)"
+                             f"が来るはずが、検出順序は逆だった"),
+                ))
+            else:
+                results.append(RelationCheck(
+                    relation=rel,
+                    passed=True,
+                    message=f"「{a_name}」(t={a.t}s) → 「{b_name}」(t={b.t}s) の順序どおり",
+                ))
         elif op == "overlaps":
             overlap = not (a.end_t < b.start_t or b.end_t < a.start_t)
             if not overlap and gap_tolerance_s > 0:
                 gap = max(a.start_t, b.start_t) - min(a.end_t, b.end_t)
                 overlap = gap <= gap_tolerance_s
             if not overlap:
-                violations.append(f"「{a_name}」(t={a.t}s)と「{b_name}」(t={b.t}s)は"
-                                   f"重なっているはずだが、検出区間が離れていた")
-    return violations
+                results.append(RelationCheck(
+                    relation=rel,
+                    passed=False,
+                    message=(f"「{a_name}」(t={a.t}s)と「{b_name}」(t={b.t}s)は"
+                             f"重なっているはずだが、検出区間が離れていた"),
+                ))
+            else:
+                results.append(RelationCheck(
+                    relation=rel,
+                    passed=True,
+                    message=(f"「{a_name}」(t={a.t}s) と 「{b_name}」(t={b.t}s) の区間が重なっている"),
+                ))
+    return results
+
+
+def check_relations(relation_strs: list[str], events: dict[str, Run | None],
+                     tolerance_s: float = 0.0, gap_tolerance_s: float = 0.0) -> list[str]:
+    """relations(文字列のリスト)を評価し、違反メッセージのリストを返す。空なら違反なし。"""
+    return [r.message for r in evaluate_relations(relation_strs, events, tolerance_s, gap_tolerance_s)
+            if not r.passed]
 
 
 # ---------------------------------------------------------------------------
@@ -190,6 +239,7 @@ class JudgeResult:
     events: dict[str, Run | None]
     coverage: float
     violations: list[str]
+    relation_checks: list[RelationCheck]
     verdict: str  # "PASS" | "FAIL"
 
 
@@ -206,8 +256,9 @@ def judge(sop_def: dict[str, Any], frames: list[dict]) -> JudgeResult:
     relations = sop_def.get("relations", [])
 
     events = detect_events(sop_def["events"], frames, defaults)
-    violations = check_relations(relations, events, tolerance_s=tolerance_s,
-                                  gap_tolerance_s=gap_tolerance_s)
+    relation_checks = evaluate_relations(relations, events, tolerance_s=tolerance_s,
+                                         gap_tolerance_s=gap_tolerance_s)
+    violations = [r.message for r in relation_checks if not r.passed]
 
     excluded = not_only_events(relations)
     required = {k: v for k, v in events.items() if k not in excluded}
@@ -215,4 +266,5 @@ def judge(sop_def: dict[str, Any], frames: list[dict]) -> JudgeResult:
     coverage = n_done / len(required) if required else 1.0
 
     verdict = "PASS" if (coverage == 1.0 and not violations) else "FAIL"
-    return JudgeResult(events=events, coverage=coverage, violations=violations, verdict=verdict)
+    return JudgeResult(events=events, coverage=coverage, violations=violations,
+                       relation_checks=relation_checks, verdict=verdict)

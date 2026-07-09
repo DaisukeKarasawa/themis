@@ -134,6 +134,8 @@ def test_judge_endpoint_returns_python_verdict(mock_server):
     assert body["verdict"] == "PASS"
     assert body["coverage"] == 1.0
     assert body["violations"] == []
+    assert len(body["relation_results"]) == len(sop_def["relations"])
+    assert all(r["passed"] for r in body["relation_results"])
 
 
 def test_rejects_oversized_payload(mock_server):

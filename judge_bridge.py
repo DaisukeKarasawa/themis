@@ -81,5 +81,9 @@ def run_judge(payload: dict[str, Any]) -> dict[str, Any]:
         "verdict": result.verdict,
         "coverage": result.coverage,
         "violations": result.violations,
+        "relation_results": [
+            {"relation": r.relation, "passed": r.passed, "message": r.message}
+            for r in result.relation_checks
+        ],
         "events": events,
     }
