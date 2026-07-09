@@ -569,6 +569,39 @@
       <div class="row" style="margin-top:10px">
         <button type="button" id="addQuestionBtn">+ 項目を追加</button>
       </div>
+      <details style="padding:0">
+        <summary style="padding:16px 18px">判定ルール（イベント・relations）</summary>
+        <div style="padding:0 18px 16px">
+          <h2 style="margin-top:0">イベント定義</h2>
+          <table id="eventsTable">
+            <thead>
+              <tr>
+                <th style="width:120px">名前</th>
+                <th>evidence (例: knob==yes)</th>
+                <th style="width:70px">min_frames</th>
+                <th style="width:80px">N回目</th>
+                <th style="width:70px"></th>
+              </tr>
+            </thead>
+            <tbody id="eventsBody"></tbody>
+          </table>
+          <div class="row" style="margin-top:10px">
+            <button type="button" id="addEventBtn">+ イベント追加</button>
+          </div>
+          <h2>defaults（判定の既定値）</h2>
+          <div class="row">
+            <label for="defaultOrderTolerance">order_tolerance_s</label>
+            <input type="number" id="defaultOrderTolerance" min="0" max="10" step="0.1" value="0" style="width:80px">
+            <label for="defaultMinFrames">min_frames</label>
+            <input type="number" id="defaultMinFrames" min="1" max="10" step="1" value="1" style="width:64px">
+            <label for="defaultMaxGapFrames">max_gap_frames</label>
+            <input type="number" id="defaultMaxGapFrames" min="0" max="10" step="1" value="2" style="width:64px">
+          </div>
+          <h2>relations（1行1件）</h2>
+          <textarea id="relationsInput"></textarea>
+          <p class="hint">例: ignite before point1 / flame_seen overlaps ignite / not gloves_worn</p>
+        </div>
+      </details>
     </div>
 
     <details class="card" style="padding:0">
@@ -582,42 +615,8 @@
     <details class="card" style="padding:0">
       <summary id="historySummary" style="padding:16px 18px">実行履歴（0件）</summary>
       <div style="padding:0 18px 16px">
-        <p class="hint">同じブラウザに直近5件まで保存します。5件を超えると古い結果から削除されます。</p>
+        <p class="hint">同じブラウザに直近5件まで保存します。「表示」でフレーム・回答・判定を含む再生画面を復元できます。5件を超えると古い結果から削除されます。フレーム画像を含むため、保存容量が足りない場合は保存に失敗することがあります。</p>
         <div id="historyList" class="history-list"></div>
-      </div>
-    </details>
-
-    <details class="card" style="padding:0">
-      <summary style="padding:16px 18px">3. 高度な設定（イベント・relations）</summary>
-      <div style="padding:0 18px 16px">
-        <h2 style="margin-top:0">イベント定義</h2>
-        <table id="eventsTable">
-          <thead>
-            <tr>
-              <th style="width:120px">名前</th>
-              <th>evidence (例: knob==yes)</th>
-              <th style="width:70px">min_frames</th>
-              <th style="width:80px">N回目</th>
-              <th style="width:70px"></th>
-            </tr>
-          </thead>
-          <tbody id="eventsBody"></tbody>
-        </table>
-        <div class="row" style="margin-top:10px">
-          <button type="button" id="addEventBtn">+ イベント追加</button>
-        </div>
-        <h2>defaults（判定の既定値）</h2>
-        <div class="row">
-          <label for="defaultOrderTolerance">order_tolerance_s</label>
-          <input type="number" id="defaultOrderTolerance" min="0" max="10" step="0.1" value="0" style="width:80px">
-          <label for="defaultMinFrames">min_frames</label>
-          <input type="number" id="defaultMinFrames" min="1" max="10" step="1" value="1" style="width:64px">
-          <label for="defaultMaxGapFrames">max_gap_frames</label>
-          <input type="number" id="defaultMaxGapFrames" min="0" max="10" step="1" value="2" style="width:64px">
-        </div>
-        <h2>relations（1行1件）</h2>
-        <textarea id="relationsInput"></textarea>
-        <p class="hint">例: ignite before point1 / flame_seen overlaps ignite / not gloves_worn</p>
       </div>
     </details>
   </section>
@@ -894,6 +893,7 @@ function writeStoredHistoryEntries(entries) {
 
 function createHistoryEntry(result) {
   const createdAt = new Date().toISOString();
+  const hasFrames = Boolean(result.frames?.length);
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt,
@@ -903,7 +903,8 @@ function createHistoryEntry(result) {
     n_frames: result.n_frames,
     violations: result.violations || [],
     events: result.events || {},
-    hasFrames: false
+    hasFrames,
+    ...(hasFrames ? { result } : {})
   };
 }
 

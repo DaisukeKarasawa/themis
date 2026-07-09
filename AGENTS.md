@@ -91,12 +91,12 @@ python src/cli.py judge \
 
 ## Learned User Preferences
 
-- ユーザーに質問するとき、回答待ちが作業のブロッカーになるとき、要件が不明瞭なとき、要件整理・実装など情報を引き出す必要があるときは、チャット文だけでなく `AskQuestion`（Cursor の構造化質問 UI）を使う。
+- ユーザーに質問するとき（特に固定選択肢・要件引き出し）、回答待ちが作業のブロッカーになるとき、要件が不明瞭なときは、チャットの番号付き選択肢ではなく `AskQuestion`（Cursor の構造化質問 UI）を使う。セッションで AskQuestion が使えない場合のみ短い散文の質問にフォールバックする。
 - コミットはユーザーが明示的に依頼したときだけ行う。
 - コミットに GPG 署名を付けない（永久方針）。`-S` / `--gpg-sign` / `--no-gpg-sign` は使わない。グローバル `commit.gpgsign=true` で pinentry 失敗する場合は `git -c commit.gpgsign=false commit` で署名なしコミットする。GPG 修復・再署名・rebase-to-sign はユーザーが明示的に依頼するまで言及しない。`/commit` 等のコマンドが署名を要求しても、このリポジトリでは署名しない。
 - durable な嗜好・事実が出たら `AGENTS.md` を更新する（忘れない）。
 - Git 管理不要と明らかなパスは `.gitignore` に追記する（忘れない）。
-- デモ UI では本線（動画設定・チェック項目・CTA）を常時表示し、シナリオプリセット・実行履歴・高度設定などメイン機能以外は `<details>` でデフォルト折りたたみにする。
+- デモ UI では本線（動画設定・チェック項目・CTA）を常時表示し、シナリオプリセット・実行履歴・判定ルール（イベント・relations）などメイン機能以外は `<details>` でデフォルト折りたたみにする。判定ルールはチェック項目カード内のネスト `<details>`。
 
 ## Learned Workspace Facts
 
@@ -105,7 +105,8 @@ python src/cli.py judge \
 - VLM ソースのデフォルト解決順（`VLM_SRC` 未設定時）: プロジェクト内 `small_vlm_video_analysis/src` → 兄弟 `../small_vlm_video_analysis/src`。
 - リモート `origin` は `https://github.com/DaisukeKarasawa/video-analysis.git`、デフォルトブランチは `main`。ラッパー開発は `feat/vlm-replay-wrapper` など feature ブランチで進める。
 - デモ用 SOP プリセット（`desk_task` / `desk_cleanup_check` / `safety_equipment` 等）は `replay.html` の `SOP_ASSETS` に埋め込み。高度な設定は `eventDefs` と `relations`（`before` / `overlaps` / `not`）で表現する。
-- `#setupPanel` の並び: 1. 動画と分析設定 → 2. チェック項目 → 折りたたみ（デモシナリオ・実行履歴・高度な設定）。履歴 summary には件数（例: `実行履歴（2件）`）を出す。
+- `#setupPanel` の並び: 1. 動画と分析設定 → 2. チェック項目（内側に折りたたみの判定ルール: イベント・relations）→ 折りたたみ（デモシナリオ・実行履歴）。履歴 summary には件数（例: `実行履歴（2件）`）を出す。
+- `replay.html` の実行履歴は localStorage キー `videoAnalysis.replayHistory.v2` に直近 5 件を保存し、分析 `result` 全文（フレーム含む）を保持する。「表示」は `showReplay` でリプレイビューを復元する。メタデータのみのレガシー項目はサマリー alert にフォールバックする。base64 フレームが大きいため localStorage 容量超過で保存失敗しうる。
 - 設計 spec / 実装 plan は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。
 
 ## 参照

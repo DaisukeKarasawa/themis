@@ -58,9 +58,10 @@ const historyEntry = sandbox.createHistoryEntry({
   frames: [{ image: "data:image/jpeg;base64,AAAA" }]
 });
 
-assert.strictEqual(historyEntry.hasFrames, false, "history entries should not retain frames");
+assert.strictEqual(historyEntry.hasFrames, true, "history entries should retain frames when present");
 assert.strictEqual(historyEntry.title, "テストSOP");
-assert.ok(!("result" in historyEntry), "history entries should not embed full result payload");
-assert.ok(!("frames" in historyEntry), "history entries should not store frame images");
+assert.ok("result" in historyEntry, "history entries should embed full result payload");
+assert.strictEqual(historyEntry.result.frames.length, 1, "result should include frame images");
+assert.ok(!("frames" in historyEntry), "frames should live inside result, not at top level");
 
 console.log("replay history behavior ok");
