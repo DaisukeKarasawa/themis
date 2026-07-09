@@ -2648,6 +2648,11 @@ async function ensureFrameGroundings(frameIndex) {
       "on_demand"
     );
     frame.groundings = mergeGroundingEntries(frame.groundings, groundings, "on_demand");
+    for (const qid of missing) {
+      if (!frame.groundings[qid]) {
+        frame.groundings[qid] = { status: "failed", source: "on_demand" };
+      }
+    }
     if (frameIndex === idx) renderGroundingOverlays(frame);
   } catch (err) {
     console.warn("on-demand grounding failed", err);
