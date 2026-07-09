@@ -112,6 +112,7 @@ python src/cli.py judge \
 - replay 画面は `section.left`（動画・コントロール）を sticky、`section.right` が通常フローで縦スクロールを駆動する。
 - relations の PASS/FAIL 判定結果は replay 画面 `section.right` 下部（チェック項目の結果・イベント検出の近く）に視覚表示する。
 - 結果画面 `section.right` の見出しは「チェック項目の結果」「イベント検出」「relations の結果」。
+- `replay.html` の yes 回答には spatial grounding の根拠枠を表示できる（`/api/vlm/analyze` の `ground_for`、分析時は yes のみ・不足はスクラブ時オンデマンド）。判定は `answers` のみで bbox は説明用。
 - `replay.html` の実行履歴は localStorage キー `videoAnalysis.replayHistory.v2` に直近 5 件を保存し、分析 `result` 全文（フレーム含む）を保持する。「表示」は `showReplay` でリプレイビューを復元する。メタデータのみのレガシー項目はサマリー alert にフォールバックする。base64 フレームが大きいため localStorage 容量超過で保存失敗しうる。
 - 設計 spec / 実装 plan は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。
 

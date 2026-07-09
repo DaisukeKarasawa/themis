@@ -28,6 +28,9 @@ assert.match(html, /const HISTORY_LIMIT = 5;/, "history limit should be 5");
 assert.match(html, /const HISTORY_STORAGE_KEY = "videoAnalysis.replayHistory.v2";/, "history storage key should be v2");
 assert.doesNotMatch(html, /function detectEvents\(/, "browser judge detectEvents should be removed");
 assert.match(html, /function judgeViaServer\(/, "server judge bridge should exist");
+assert.match(html, /function analyzeFrameGrounding\(/, "grounding API helper should exist");
+assert.match(html, /id="groundingToggle"/, "grounding toggle should exist");
+assert.match(html, /data-help="evidence-region"/, "grounding help topic should exist");
 assert.match(html, /function ensureRelationResults\(/, "relation result backfill should exist");
 assert.match(html, /function needsRelationBackfill\(/, "relation backfill detection should exist");
 assert.match(html, /function patchHistoryEntryResult\(/, "history relation backfill persistence should exist");
@@ -58,13 +61,17 @@ const historyEntry = sandbox.createHistoryEntry({
   n_frames: 12,
   violations: [],
   events: { step_1: { start_idx: 0, end_idx: 2, t: 1.0 } },
-  frames: [{ image: "data:image/jpeg;base64,AAAA" }]
+  frames: [{
+    image: "data:image/jpeg;base64,AAAA",
+    groundings: { knob: { status: "ok", bbox: [0.1, 0.2, 0.4, 0.6], source: "analyze" } }
+  }]
 });
 
 assert.strictEqual(historyEntry.hasFrames, true, "history entries should retain frames when present");
 assert.strictEqual(historyEntry.title, "テストSOP");
 assert.ok("result" in historyEntry, "history entries should embed full result payload");
 assert.strictEqual(historyEntry.result.frames.length, 1, "result should include frame images");
+assert.ok(historyEntry.result.frames[0].groundings?.knob, "result should retain groundings in frames");
 assert.ok(!("frames" in historyEntry), "frames should live inside result, not at top level");
 
 console.log("replay history behavior ok");
