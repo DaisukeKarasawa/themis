@@ -170,7 +170,7 @@ def evaluate_relations(relation_strs: list[str], events: dict[str, Run | None],
                 results.append(RelationCheck(
                     relation=rel,
                     passed=True,
-                    message=f"「{name}」は検出されていない（禁止事項を満たしている）",
+                    message=f"「{name}」は検出されていない(禁止事項を満たしている)",
                 ))
             continue
 
