@@ -25,12 +25,18 @@ function extract(name) {
 }
 
 assert.match(html, /const HISTORY_LIMIT = 5;/, "history limit should be 5");
+assert.match(html, /const HISTORY_STORAGE_KEY = "videoAnalysis.replayHistory.v2";/, "history storage key should be v2");
+assert.doesNotMatch(html, /function detectEvents\(/, "browser judge detectEvents should be removed");
+assert.match(html, /function judgeViaServer\(/, "server judge bridge should exist");
+assert.match(html, /id: "konro_inspection"/, "konro preset should exist");
+assert.match(html, /min_frames: 2/, "konro preset should include min_frames overrides");
 
 const sandbox = {};
 vm.createContext(sandbox);
 vm.runInContext(`
   const HISTORY_LIMIT = 5;
   ${extract("trimHistoryEntries")}
+  ${extract("createHistoryEntry")}
 `, sandbox);
 
 const entries = Array.from({ length: 6 }, (_, i) => ({ id: `run-${i + 1}` }));
@@ -41,5 +47,20 @@ assert.deepStrictEqual(
   ["run-6", "run-5", "run-4", "run-3", "run-2"],
   "history should keep the latest 5 entries in newest-first order"
 );
+
+const historyEntry = sandbox.createHistoryEntry({
+  sop: { name: "テストSOP" },
+  verdict: "PASS",
+  coverage: 1,
+  n_frames: 12,
+  violations: [],
+  events: { step_1: { start_idx: 0, end_idx: 2, t: 1.0 } },
+  frames: [{ image: "data:image/jpeg;base64,AAAA" }]
+});
+
+assert.strictEqual(historyEntry.hasFrames, false, "history entries should not retain frames");
+assert.strictEqual(historyEntry.title, "テストSOP");
+assert.ok(!("result" in historyEntry), "history entries should not embed full result payload");
+assert.ok(!("frames" in historyEntry), "history entries should not store frame images");
 
 console.log("replay history behavior ok");

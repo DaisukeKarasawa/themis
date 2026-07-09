@@ -8,7 +8,7 @@
 
 | パス | 役割 |
 |---|---|
-| `server.py` | `replay.html` を配信し、`/api/vlm/analyze` 等で VLM を呼ぶ HTTP サーバー |
+| `server.py` | `replay.html` を配信し、`/api/vlm/analyze`・`/api/judge` 等で VLM / 判定を呼ぶ HTTP サーバー |
 | `vlm_backend.py` | `small_vlm_video_analysis` の `Observer` へのブリッジ |
 | `run.sh` | `.venv/bin/python3 server.py` を起動 |
 | `replay.html` | ブラウザ UI（フレーム再生 + VLM 質問） |
@@ -19,7 +19,7 @@
 
 - **対象 OS**: macOS（Apple Silicon）。mlx-vlm は Apple Silicon 前提。
 - **Python**: 3.10+。ルートは `.venv` を使う（`run.sh` / `server.py` が参照）。
-- **観察と判定の分離**: VLM はフレーム単位の質問回答のみ。PASS/FAIL 判定は決定論的ルールエンジン（`judge.py`）。この分離を崩さない。
+- **観察と判定の分離**: VLM はフレーム単位の質問回答のみ。PASS/FAIL 判定は決定論的ルールエンジン（`judge.py`）。`replay.html` は `/api/judge` 経由で Python 判定結果を表示し、ブラウザ側で独自判定しない。
 - **用語**: `questions` / `answers` / `events` / `relations`。旧称 `cue` は使わない。
 - **ネスト Git**: `small_vlm_video_analysis/.git` が残っていると親リポジトリからはサブモジュール扱いになる。単一リポジトリに統合するなら nested `.git` を削除するか、正式に submodule 化する。
 
@@ -55,8 +55,9 @@ python src/cli.py judge \
 変更後の最低限の確認:
 
 1. `small_vlm_video_analysis` で `pytest` が通る
-2. VLM なし `judge` コマンドで PASS が維持される
-3. `./run.sh` でサーバーが起動し、`replay.html` が開ける（VLM 変更時は実機確認）
+2. ルートで `pytest tests/test_server.py` が通る
+3. VLM なし `judge` コマンドで PASS が維持される
+4. `./run.sh` でサーバーが起動し、`replay.html` が開ける（VLM 変更時は実機確認）
 
 ## 実装方針
 
@@ -91,7 +92,7 @@ python src/cli.py judge \
 ## Learned User Preferences
 
 - コミットはユーザーが明示的に依頼したときだけ行う。
-- コミットに GPG 署名を付けない（永久方針）。`-S` / `--gpg-sign` による署名試行、pinentry 失敗後の `--no-gpg-sign` フォールバックもしない。通常の `git commit -m "..."` のみ。GPG 修復・再署名・rebase-to-sign はユーザーが明示的に依頼するまで言及しない。`/commit` 等のコマンドが署名を要求しても、このリポジトリでは署名しない。
+- コミットに GPG 署名を付けない（永久方針）。`-S` / `--gpg-sign` / `--no-gpg-sign` は使わない。グローバル `commit.gpgsign=true` で pinentry 失敗する場合は `git -c commit.gpgsign=false commit` で署名なしコミットする。GPG 修復・再署名・rebase-to-sign はユーザーが明示的に依頼するまで言及しない。`/commit` 等のコマンドが署名を要求しても、このリポジトリでは署名しない。
 - durable な嗜好・事実が出たら `AGENTS.md` を更新する（忘れない）。
 - Git 管理不要と明らかなパスは `.gitignore` に追記する（忘れない）。
 
@@ -100,6 +101,8 @@ python src/cli.py judge \
 - ルート `.gitignore` は Python 生成物、秘密情報（`.env`）、macOS/エディタ、`.cursor/hooks/state/`、実行出力（`out/`, `*.log`, `/data/`）、ML キャッシュ（`.cache/`, `models/`）を除外する。
 - `small_vlm_video_analysis/.git` がネストされている。初回コミット前に単一リポジトリ化（nested `.git` 削除）か submodule 化を決める。
 - VLM ソースのデフォルト解決順（`VLM_SRC` 未設定時）: プロジェクト内 `small_vlm_video_analysis/src` → 兄弟 `../small_vlm_video_analysis/src`。
+- リモート `origin` は `https://github.com/DaisukeKarasawa/video-analysis.git`、デフォルトブランチは `main`。ラッパー開発は `feat/vlm-replay-wrapper` など feature ブランチで進める。
+- デモ用 SOP プリセット（`desk_task` / `desk_cleanup_check` / `safety_equipment` 等）は `replay.html` の `SOP_ASSETS` に埋め込み。高度な設定は `eventDefs` と `relations`（`before` / `overlaps` / `not`）で表現する。
 
 ## 参照
 

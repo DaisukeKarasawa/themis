@@ -217,7 +217,7 @@
     <details open>
       <summary>video-analysis/ <span class="role">ルート</span></summary>
       <div class="item"><code>run.sh</code> <span class="role">起動</span> <span class="desc">.venv の python3 で server.py を実行</span></div>
-      <div class="item"><code>server.py</code> <span class="role">HTTP サーバ</span> <span class="desc">replay.html 配信 + /analyze API</span></div>
+      <div class="item"><code>server.py</code> <span class="role">HTTP サーバ</span> <span class="desc">replay.html 配信 + /api/vlm/analyze・/api/judge</span></div>
       <div class="item"><code>vlm_backend.py</code> <span class="role">VLM ブリッジ</span> <span class="desc">replay.html ↔ Observer</span></div>
       <div class="item"><code>replay.html</code> <span class="role">ブラウザ UI</span> <span class="desc">フレーム再生・リアルタイム VLM 観察</span></div>
       <div class="item"><code>requirements.txt</code> <span class="role">依存</span> <span class="desc">mlx-vlm, opencv-python, pyyaml</span></div>
@@ -259,7 +259,8 @@
         <tr><td><code>GET /replay.html</code></td><td>静的 UI</td><td>SOP 点検ビューア</td></tr>
         <tr><td><code>GET /api/status</code></td><td>状態確認</td><td>VLM モード・ready 状態</td></tr>
         <tr><td><code>POST /api/warmup</code></td><td>事前ロード</td><td>Qwen3-VL をバックグラウンド読込</td></tr>
-        <tr><td><code>POST /analyze</code></td><td>フレーム分析</td><td>image + questions → answers</td></tr>
+        <tr><td><code>POST /api/vlm/analyze</code></td><td>フレーム分析</td><td>image + questions → answers</td></tr>
+        <tr><td><code>POST /api/judge</code></td><td>SOP 判定</td><td>sop_def + frames → verdict/events</td></tr>
       </table>
     </div>
     <div>

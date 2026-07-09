@@ -531,7 +531,7 @@
       </div>
       <div class="row technical-row">
         <label for="apiUrl">VLM API URL</label>
-        <input type="text" id="apiUrl" class="grow" value="/analyze">
+        <input type="text" id="apiUrl" class="grow" value="/api/vlm/analyze">
       </div>
       <div class="row">
         <label for="sampleInterval">サンプリング間隔 (秒)</label>
@@ -586,6 +586,7 @@
             <tr>
               <th style="width:120px">名前</th>
               <th>evidence (例: knob==yes)</th>
+              <th style="width:70px">min_frames</th>
               <th style="width:80px">N回目</th>
               <th style="width:70px"></th>
             </tr>
@@ -594,6 +595,15 @@
         </table>
         <div class="row" style="margin-top:10px">
           <button type="button" id="addEventBtn">+ イベント追加</button>
+        </div>
+        <h2>defaults（判定の既定値）</h2>
+        <div class="row">
+          <label for="defaultOrderTolerance">order_tolerance_s</label>
+          <input type="number" id="defaultOrderTolerance" min="0" max="10" step="0.1" value="0" style="width:80px">
+          <label for="defaultMinFrames">min_frames</label>
+          <input type="number" id="defaultMinFrames" min="1" max="10" step="1" value="1" style="width:64px">
+          <label for="defaultMaxGapFrames">max_gap_frames</label>
+          <input type="number" id="defaultMaxGapFrames" min="0" max="10" step="1" value="2" style="width:64px">
         </div>
         <h2>relations（1行1件）</h2>
         <textarea id="relationsInput"></textarea>
@@ -642,9 +652,43 @@
 
 <script>
 const DEFAULT_TITLE = "動画SOPチェックデモ";
-const HISTORY_STORAGE_KEY = "videoAnalysis.replayHistory.v1";
+const HISTORY_STORAGE_KEY = "videoAnalysis.replayHistory.v2";
 const HISTORY_LIMIT = 5;
 const SOP_ASSETS = [
+  {
+    id: "konro_inspection",
+    label: "コンロ始業前点検",
+    description: "同梱の konro 例に基づく SOP。min_frames・occurrence・overlaps・not を含む基準シナリオです。",
+    sop: { id: "konro_inspection", name: "コンロ始業前点検（正しい手順）" },
+    domain_hint:
+      "これはガスコンロの点検作業を上から撮った動画の1フレームです。コンロ手前には左右2つのつまみが並び、下部の引き出しは中央〜左寄りが魚焼きグリル、その右隣に電池ケースの小さな引き出しがある",
+    defaults: { order_tolerance_s: 1.0, min_frames: 1, max_gap_frames: 2 },
+    questions: [
+      { id: "knob", ask: "コンロ手前に左右2つ並んだつまみのどちらかを手が操作しているか", values: ["yes", "no"] },
+      { id: "flame", ask: "コンロ上部のバーナー(つまみの奥)に炎が見えるか", values: ["yes", "no"] },
+      { id: "pointing", ask: "人差し指を立てた手(指差し)が写っているか", values: ["yes", "no"] },
+      { id: "grill", ask: "コンロ下部引き出しのうち、中央〜左寄りにある魚焼きグリルが開いているか", values: ["yes", "no", "unclear"] },
+      { id: "battery", ask: "コンロ下部引き出しのうち、グリルの右隣にある小さな電池ケースに乾電池が見えるか", values: ["yes", "no"] },
+      { id: "gloves", ask: "手に手袋(軍手・ゴム手袋等)を着用しているか", values: ["yes", "no"] }
+    ],
+    relations: [
+      "flame_seen overlaps ignite",
+      "ignite before point1",
+      "point1 before grill_open",
+      "grill_open before point2",
+      "point2 overlaps battery_check",
+      "not gloves_worn"
+    ],
+    eventDefs: [
+      { name: "ignite", evidence: "knob==yes", min_frames: 2 },
+      { name: "flame_seen", evidence: "flame==yes" },
+      { name: "point1", evidence: "pointing==yes", occurrence: 1 },
+      { name: "grill_open", evidence: "grill==yes", min_frames: 2 },
+      { name: "point2", evidence: "pointing==yes", occurrence: 2 },
+      { name: "battery_check", evidence: "battery==yes" },
+      { name: "gloves_worn", evidence: "gloves==yes" }
+    ]
+  },
   {
     id: "desk_task",
     label: "デスク作業チェック",
@@ -747,6 +791,9 @@ const sampleIntervalInput = document.getElementById("sampleInterval");
 const sopTitleInput = document.getElementById("sopTitle");
 const domainHintInput = document.getElementById("domainHint");
 const relationsInput = document.getElementById("relationsInput");
+const defaultOrderToleranceInput = document.getElementById("defaultOrderTolerance");
+const defaultMinFramesInput = document.getElementById("defaultMinFrames");
+const defaultMaxGapFramesInput = document.getElementById("defaultMaxGapFrames");
 const analyzeBtn = document.getElementById("analyzeBtn");
 const backToSetupBtn = document.getElementById("backToSetupBtn");
 const progressWrap = document.getElementById("progressWrap");
@@ -782,8 +829,10 @@ async function initAnalyzeModeBanner() {
         "<strong>モックモードです。</strong> 全項目 <code>no</code> を返します。ローカル VLM を使うには <code>VLM_USE_MOCK</code> を外して server.py を再起動してください。";
       mockModeWarning.classList.add("active");
     } else if (status.mode === "error") {
-      mockModeText.innerHTML =
-        "<strong>VLM バックエンド未設定:</strong> " + status.message;
+      mockModeText.textContent = "";
+      const strong = document.createElement("strong");
+      strong.textContent = "VLM バックエンド未設定:";
+      mockModeText.append(strong, " ", document.createTextNode(String(status.message || "")));
       mockModeWarning.classList.add("active");
     }
   } catch {
@@ -841,7 +890,9 @@ function createHistoryEntry(result) {
     verdict: result.verdict,
     coverage: result.coverage,
     n_frames: result.n_frames,
-    result
+    violations: result.violations || [],
+    events: result.events || {},
+    hasFrames: false
   };
 }
 
@@ -899,8 +950,12 @@ function renderHistoryList(container) {
     button.type = "button";
     button.textContent = "表示";
     button.addEventListener("click", () => {
-      stopPlayback();
-      showReplay(entry.result);
+      if (entry.hasFrames && entry.result) {
+        stopPlayback();
+        showReplay(entry.result);
+        return;
+      }
+      showHistorySummary(entry);
     });
 
     main.append(title, meta);
@@ -984,6 +1039,22 @@ function renderEventsEditor(eventDefs) {
     evidenceInput.value = ev.evidence;
     evidenceInput.addEventListener("change", () => { ev.evidence = evidenceInput.value.trim(); });
 
+    const minFramesTd = document.createElement("td");
+    const minFramesInput = document.createElement("input");
+    minFramesInput.type = "number";
+    minFramesInput.min = "1";
+    minFramesInput.value = ev.min_frames != null ? String(ev.min_frames) : "";
+    minFramesInput.placeholder = "—";
+    minFramesInput.style.width = "64px";
+    minFramesInput.addEventListener("change", () => {
+      const raw = minFramesInput.value.trim();
+      if (!raw) {
+        delete ev.min_frames;
+        return;
+      }
+      ev.min_frames = Math.max(1, parseInt(raw, 10) || 1);
+    });
+
     const occInput = document.createElement("input");
     occInput.type = "number";
     occInput.min = "1";
@@ -995,13 +1066,14 @@ function renderEventsEditor(eventDefs) {
 
     nameTd.appendChild(nameInput);
     evidenceTd.appendChild(evidenceInput);
+    minFramesTd.appendChild(minFramesInput);
     occTd.appendChild(occInput);
     actionsTd.appendChild(createRemoveButton(() => {
       eventDefs.splice(index, 1);
       renderEventsEditor(eventDefs);
     }));
 
-    tr.append(nameTd, evidenceTd, occTd, actionsTd);
+    tr.append(nameTd, evidenceTd, minFramesTd, occTd, actionsTd);
     body.appendChild(tr);
   });
 }
@@ -1009,8 +1081,28 @@ function renderEventsEditor(eventDefs) {
 const editorState = {
   sopId: "custom_sop",
   questions: [],
-  eventDefs: []
+  eventDefs: [],
+  defaults: { order_tolerance_s: 0, min_frames: 1, max_gap_frames: 2 }
 };
+
+function readDefaultsFromEditor() {
+  return {
+    order_tolerance_s: Math.max(0, parseFloat(defaultOrderToleranceInput.value) || 0),
+    min_frames: Math.max(1, parseInt(defaultMinFramesInput.value, 10) || 1),
+    max_gap_frames: Math.max(0, parseInt(defaultMaxGapFramesInput.value, 10) || 0)
+  };
+}
+
+function applyDefaultsToEditor(defaults = {}) {
+  editorState.defaults = {
+    order_tolerance_s: defaults.order_tolerance_s ?? 0,
+    min_frames: defaults.min_frames ?? 1,
+    max_gap_frames: defaults.max_gap_frames ?? 2
+  };
+  defaultOrderToleranceInput.value = String(editorState.defaults.order_tolerance_s);
+  defaultMinFramesInput.value = String(editorState.defaults.min_frames);
+  defaultMaxGapFramesInput.value = String(editorState.defaults.max_gap_frames);
+}
 
 function isEditorDirty() {
   return editorState.questions.length > 0
@@ -1027,6 +1119,7 @@ function applyConfigToEditor(config) {
   renderQuestionsEditor(editorState.questions);
   renderEventsEditor(editorState.eventDefs);
   relationsInput.value = (config.relations || []).join("\n");
+  applyDefaultsToEditor(config.defaults || {});
   sopTitleInput.value = config.sop?.name || "";
   domainHintInput.value = config.domain_hint || "";
   clearError();
@@ -1070,6 +1163,7 @@ renderQuestionsEditor(editorState.questions);
 renderEventsEditor(editorState.eventDefs);
 renderHistoryLists();
 relationsInput.value = "";
+applyDefaultsToEditor();
 sopTitleInput.value = "";
 domainHintInput.value = "";
 
@@ -1100,7 +1194,8 @@ function readConfigFromEditor() {
     sop: { id: editorState.sopId || "custom_sop", name: sopTitleInput.value.trim() || "カスタムSOP" },
     questions: structuredClone(editorState.questions),
     relations,
-    eventDefs: structuredClone(editorState.eventDefs)
+    eventDefs: structuredClone(editorState.eventDefs),
+    defaults: readDefaultsFromEditor()
   };
 }
 
@@ -1281,21 +1376,23 @@ function deriveEventDefs(questions, eventDefs) {
     }));
 }
 
-function collectMissingEventViolations(events, relations) {
-  const excluded = new Set(
-    relations
-      .map(r => /^\s*not\s+(\w+)\s*$/.exec(r))
-      .filter(Boolean)
-      .map(m => m[1])
-  );
-  const violations = [];
-  for (const [name, ev] of Object.entries(events)) {
-    if (excluded.has(name)) continue;
-    if (ev.start_idx === null) {
-      violations.push(`${name} が未検出 (${ev.evidence})`);
-    }
+function buildSopDef(config) {
+  const eventDefs = deriveEventDefs(config.questions, config.eventDefs);
+  const events = {};
+  for (const ev of eventDefs) {
+    const spec = { evidence: ev.evidence };
+    if (ev.occurrence) spec.occurrence = ev.occurrence;
+    if (ev.min_frames != null && ev.min_frames !== "") spec.min_frames = Number(ev.min_frames);
+    if (ev.max_gap_frames != null && ev.max_gap_frames !== "") spec.max_gap_frames = Number(ev.max_gap_frames);
+    events[ev.name] = spec;
   }
-  return violations;
+  return {
+    sop: config.sop,
+    questions: config.questions,
+    events,
+    relations: config.relations,
+    defaults: config.defaults || {}
+  };
 }
 
 function summarizeDetection(frames, questions) {
@@ -1307,131 +1404,66 @@ function summarizeDetection(frames, questions) {
   return { stats, allNo };
 }
 
-function findEvidenceRanges(frames, key, val) {
-  const ranges = [];
-  let start = null;
-  for (let i = 0; i < frames.length; i++) {
-    const match = frames[i].answers?.[key] === val;
-    if (match && start === null) start = i;
-    if (!match && start !== null) {
-      ranges.push([start, i - 1]);
-      start = null;
+async function judgeViaServer(config, frames) {
+  const sopDef = buildSopDef(config);
+  const judgeFrames = frames.map((frame, index) => ({
+    idx: index,
+    t: frame.t,
+    answers: frame.answers || {}
+  }));
+  const resp = await fetch("/api/judge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sop_def: sopDef, frames: judgeFrames })
+  });
+  if (!resp.ok) {
+    const body = await resp.text();
+    let msg = body.slice(0, 400);
+    try {
+      const err = JSON.parse(body);
+      if (err.error) msg = err.error;
+    } catch {
+      // keep raw body
     }
+    throw new Error(`Judge API error ${resp.status}: ${msg}`);
   }
-  if (start !== null) ranges.push([start, frames.length - 1]);
-  return ranges;
+  return resp.json();
 }
 
-function detectEvents(frames, eventDefs) {
-  const events = {};
-  for (const def of eventDefs) {
-    const match = /^(\w+)==(\w+)$/.exec(def.evidence || "");
-    if (!match) {
-      events[def.name] = { evidence: def.evidence, start_idx: null, end_idx: null, t: null };
-      continue;
-    }
-    const [, key, val] = match;
-    const ranges = findEvidenceRanges(frames, key, val);
-    const occIndex = Math.max(1, def.occurrence || 1) - 1;
-    const range = ranges[occIndex];
-    if (range) {
-      const [startIdx, endIdx] = range;
-      events[def.name] = {
-        evidence: def.evidence,
-        start_idx: startIdx,
-        end_idx: endIdx,
-        t: frames[Math.floor((startIdx + endIdx) / 2)].t
-      };
-    } else {
-      events[def.name] = { evidence: def.evidence, start_idx: null, end_idx: null, t: null };
-    }
-  }
-  return events;
-}
-
-function intervalsOverlap(a, b) {
-  return a.start_idx <= b.end_idx && b.start_idx <= a.end_idx;
-}
-
-function checkRelations(relations, events) {
-  const violations = [];
-  for (const rel of relations) {
-    const notMatch = /^\s*not\s+(\w+)\s*$/.exec(rel);
-    if (notMatch) {
-      const ev = events[notMatch[1]];
-      if (ev && ev.start_idx !== null) violations.push(rel);
-      continue;
-    }
-
-    const beforeMatch = /^(\w+)\s+before\s+(\w+)\s*$/.exec(rel);
-    if (beforeMatch) {
-      const [, aName, bName] = beforeMatch;
-      const a = events[aName];
-      const b = events[bName];
-      if (!a || a.start_idx === null) {
-        violations.push(`${aName} が未検出 (${rel})`);
-      } else if (!b || b.start_idx === null) {
-        violations.push(`${bName} が未検出 (${rel})`);
-      } else if (a.end_idx >= b.start_idx) {
-        violations.push(rel);
-      }
-      continue;
-    }
-
-    const overlapMatch = /^(\w+)\s+overlaps\s+(\w+)\s*$/.exec(rel);
-    if (overlapMatch) {
-      const [, aName, bName] = overlapMatch;
-      const a = events[aName];
-      const b = events[bName];
-      if (!a || a.start_idx === null) {
-        violations.push(`${aName} が未検出 (${rel})`);
-      } else if (!b || b.start_idx === null) {
-        violations.push(`${bName} が未検出 (${rel})`);
-      } else if (!intervalsOverlap(a, b)) {
-        violations.push(rel);
-      }
-      continue;
-    }
-
-    violations.push(`未対応のrelation: ${rel}`);
-  }
-  return violations;
-}
-
-function computeCoverage(events, relations) {
-  const excluded = new Set(
-    relations
-      .map(r => /^\s*not\s+(\w+)\s*$/.exec(r))
-      .filter(Boolean)
-      .map(m => m[1])
-  );
-  const required = Object.keys(events).filter(name => !excluded.has(name));
-  if (required.length === 0) return 1;
-  const detected = required.filter(name => events[name].start_idx !== null);
-  return detected.length / required.length;
-}
-
-function buildAnalysisResult(config, frames) {
+function buildAnalysisResult(config, frames, judgeResult) {
   const eventDefs = deriveEventDefs(config.questions, config.eventDefs);
-  const events = detectEvents(frames, eventDefs);
-  const relationViolations = checkRelations(config.relations, events);
-  const missingViolations = collectMissingEventViolations(events, config.relations);
-  const violations = [...relationViolations, ...missingViolations];
-  const coverage = computeCoverage(events, config.relations);
   const detection = summarizeDetection(frames, config.questions);
   return {
     sop: config.sop,
     questions: config.questions,
     relations: config.relations,
     eventDefs,
-    verdict: violations.length === 0 && coverage === 1 ? "PASS" : "FAIL",
-    coverage,
-    violations,
-    events,
+    verdict: judgeResult.verdict,
+    coverage: judgeResult.coverage,
+    violations: judgeResult.violations || [],
+    events: judgeResult.events || {},
     n_frames: frames.length,
     frames,
-    detection
+    detection,
+    hasFrames: true
   };
+}
+
+function showHistorySummary(entry) {
+  const coveragePct = Math.round((entry.coverage || 0) * 100);
+  const violations = (entry.violations || []).slice(0, 8);
+  const violationText = violations.length > 0
+    ? violations.map(v => `・${v}`).join("\n")
+    : "違反なし";
+  const moreViolations = (entry.violations || []).length > violations.length
+    ? `\n…他 ${entry.violations.length - violations.length} 件`
+    : "";
+  window.alert(
+    `${entry.title || "名称未設定のSOP"}\n`
+    + `${formatHistoryTimestamp(entry.createdAt)} / ${entry.verdict || "判定なし"} / coverage ${coveragePct}% / ${entry.n_frames || 0}フレーム\n\n`
+    + "フレーム画像は履歴に保存していません。再生するには同じ動画で再分析してください。\n\n"
+    + `違反:\n${violationText}${moreViolations}`
+  );
 }
 
 async function runAnalysis() {
@@ -1462,7 +1494,7 @@ async function runAnalysis() {
 
     await ensureServerReady();
 
-    const apiUrl = apiUrlInput.value.trim() || "/analyze";
+    const apiUrl = apiUrlInput.value.trim() || "/api/vlm/analyze";
     const domainHint = domainHintInput.value.trim() || "これは作業動画の1フレームです";
     for (let i = 0; i < frames.length; i++) {
       setProgress(i, frames.length, `VLM分析中... frame ${i + 1}/${frames.length} (t=${frames[i].t}s)`);
@@ -1472,7 +1504,9 @@ async function runAnalysis() {
       frames[i].probs = result.probs || {};
     }
 
-    DATA = buildAnalysisResult(config, frames);
+    setProgress(frames.length, frames.length, "SOP判定中 (Python judge)...");
+    const judgeResult = await judgeViaServer(config, frames);
+    DATA = buildAnalysisResult(config, frames, judgeResult);
     const historySaved = saveResultToHistory(DATA);
     showReplay(DATA);
     if (!historySaved) {
@@ -1500,7 +1534,9 @@ function renderRelationsList() {
   relUl.innerHTML = "";
   DATA.relations.forEach(r => {
     const li = document.createElement("li");
-    li.innerHTML = `<code>${r}</code>`;
+    const code = document.createElement("code");
+    code.textContent = r;
+    li.appendChild(code);
     relUl.appendChild(li);
   });
 }
@@ -1546,14 +1582,21 @@ function questionById(questionId) {
 }
 
 function formatEvidence(evidence) {
-  const match = /^(\w+)==(\w+)$/.exec(evidence || "");
-  if (!match) return escapeHtml(evidence || "");
+  if (!evidence) return "";
 
-  const [, questionId, expectedValue] = match;
-  const question = questionById(questionId);
-  if (!question) return escapeHtml(evidence);
+  const clauses = String(evidence).split(/\s+and\s+/);
+  const formatted = clauses.map(clause => {
+    const match = /^(\w+)==(\w+)$/.exec(clause.trim());
+    if (!match) return escapeHtml(clause.trim());
 
-  return `${escapeHtml(evidence)}<span class="qref">根拠: 項目 ${escapeHtml(question.id)}「${escapeHtml(question.ask)}」が ${escapeHtml(expectedValue)}</span>`;
+    const [, questionId, expectedValue] = match;
+    const question = questionById(questionId);
+    if (!question) return escapeHtml(clause.trim());
+
+    return `${escapeHtml(clause.trim())}<span class="qref">根拠: 項目 ${escapeHtml(question.id)}「${escapeHtml(question.ask)}」が ${escapeHtml(expectedValue)}</span>`;
+  });
+
+  return formatted.join('<span class="qref"> and </span>');
 }
 
 function formatViolationText(violation) {
