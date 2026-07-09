@@ -51,7 +51,11 @@ def _run_observer(sop, meta_or_paths, model_key, out_path):
     else:
         meta = meta_or_paths
 
-    results = json.load(open(out_path)) if os.path.exists(out_path) else []
+    if os.path.exists(out_path):
+        with open(out_path) as f:
+            results = json.load(f)
+    else:
+        results = []
     done_idx = {r["idx"] for r in results}
 
     for m in meta:
@@ -64,7 +68,8 @@ def _run_observer(sop, meta_or_paths, model_key, out_path):
                              for k, v in rec["confidence"].items())
         print(f"  t={m['t']:>5}s: {conf_str}", flush=True)
         results.sort(key=lambda r: r["idx"])
-        json.dump(results, open(out_path, "w"), ensure_ascii=False, indent=2)
+        with open(out_path, "w") as f:
+            json.dump(results, f, ensure_ascii=False, indent=2)
     return results
 
 

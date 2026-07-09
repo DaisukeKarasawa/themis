@@ -12,6 +12,8 @@ def extract_frames(video_path: str, out_dir: str, fps: float = 1.0, width: int =
     """video_path から fps 間隔でフレームを抽出し、out_dir に f000.jpg... として保存する。
     戻り値: [{"idx": int, "t": float, "path": str}, ...]
     """
+    if not fps or fps <= 0:
+        raise ValueError(f"fpsが不正です: {fps!r}")
     os.makedirs(out_dir, exist_ok=True)
     for p in glob.glob(os.path.join(out_dir, "*.jpg")):
         os.remove(p)
@@ -20,6 +22,9 @@ def extract_frames(video_path: str, out_dir: str, fps: float = 1.0, width: int =
     if not cap.isOpened():
         raise FileNotFoundError(f"動画を開けませんでした: {video_path}")
     video_fps = cap.get(cv2.CAP_PROP_FPS)
+    if not video_fps or video_fps <= 0:
+        cap.release()
+        raise ValueError(f"動画のFPSが不正です: {video_fps!r} ({video_path})")
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     duration = n_frames / video_fps if video_fps else 0.0
 

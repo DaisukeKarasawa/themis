@@ -14,6 +14,8 @@ REQUIRED_TOP_KEYS = ("sop", "questions", "events", "relations")
 
 def load_sop(path: str | Path) -> dict[str, Any]:
     doc = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(doc, dict):
+        raise ValueError(f"{path}: SOPのルートはマッピングである必要があります (got {type(doc).__name__})")
     missing = [k for k in REQUIRED_TOP_KEYS if k not in doc]
     if missing:
         raise ValueError(f"{path}: 必須キーが不足しています: {missing}")
