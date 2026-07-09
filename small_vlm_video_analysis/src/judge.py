@@ -12,7 +12,6 @@
              - before      : Aの代表時刻がBの代表時刻より前(order_tolerance_s の許容あり)
              - overlaps    : Aの検出区間とBの検出区間が重なっている(「同時でよい」「この区間内の
                               どこかで一度起きればよい」の両方をこれ1つで表現できる)
-             - not_overlaps: 同時に起きてはいけない
              - not A       : Aは一度も検出されてはいけない(安全条件・禁止工程の検出)
 """
 from __future__ import annotations
@@ -45,6 +44,8 @@ class Run:
     start_idx: int
     end_idx: int
     t: float       # 区間内フレームの時刻の平均(代表時刻)
+    start_t: float
+    end_t: float
     hits: int
 
 
@@ -75,7 +76,8 @@ def find_runs(frames: list[dict], clauses: list[tuple[str, str]],
         idxs = [i for i, _ in r]
         ts = [t for _, t in r]
         out.append(Run(start_idx=min(idxs), end_idx=max(idxs),
-                        t=round(sum(ts) / len(ts), 2), hits=len(r)))
+                        t=round(sum(ts) / len(ts), 2),
+                        start_t=min(ts), end_t=max(ts), hits=len(r)))
     return out
 
 
@@ -133,7 +135,7 @@ def detect_events(event_defs: dict[str, Any], frames: list[dict],
 # 関係(relations)の評価
 # ---------------------------------------------------------------------------
 
-REL_RE = re.compile(r"^\s*(\w+)\s+(before|overlaps|not_overlaps)\s+(\w+)\s*$")
+REL_RE = re.compile(r"^\s*(\w+)\s+(before|overlaps)\s+(\w+)\s*$")
 NOT_RE = re.compile(r"^\s*not\s+(\w+)\s*$")
 
 
@@ -169,17 +171,13 @@ def check_relations(relation_strs: list[str], events: dict[str, Run | None],
                 violations.append(f"「{a_name}」(t={a.t}s)の後に「{b_name}」(t={b.t}s)"
                                    f"が来るはずが、検出順序は逆だった")
         elif op == "overlaps":
-            overlap = not (a.end_idx < b.start_idx or b.end_idx < a.start_idx)
+            overlap = not (a.end_t < b.start_t or b.end_t < a.start_t)
             if not overlap and gap_tolerance_s > 0:
-                gap = max(a.start_idx, b.start_idx) - min(a.end_idx, b.end_idx)
+                gap = max(a.start_t, b.start_t) - min(a.end_t, b.end_t)
                 overlap = gap <= gap_tolerance_s
             if not overlap:
                 violations.append(f"「{a_name}」(t={a.t}s)と「{b_name}」(t={b.t}s)は"
                                    f"重なっているはずだが、検出区間が離れていた")
-        elif op == "not_overlaps":
-            overlap = not (a.end_idx < b.start_idx or b.end_idx < a.start_idx)
-            if overlap:
-                violations.append(f"「{a_name}」と「{b_name}」は同時に起きてはいけないが、重なっていた")
     return violations
 
 
@@ -204,10 +202,12 @@ def judge(sop_def: dict[str, Any], frames: list[dict]) -> JudgeResult:
     """
     defaults = sop_def.get("defaults", {})
     tolerance_s = defaults.get("order_tolerance_s", 0.0)
+    gap_tolerance_s = defaults.get("gap_tolerance_s", 0.0)
     relations = sop_def.get("relations", [])
 
     events = detect_events(sop_def["events"], frames, defaults)
-    violations = check_relations(relations, events, tolerance_s=tolerance_s)
+    violations = check_relations(relations, events, tolerance_s=tolerance_s,
+                                  gap_tolerance_s=gap_tolerance_s)
 
     excluded = not_only_events(relations)
     required = {k: v for k, v in events.items() if k not in excluded}

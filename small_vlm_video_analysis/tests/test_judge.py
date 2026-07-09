@@ -78,3 +78,29 @@ def test_occurrence_is_order_independent():
     assert r1.events["point1"].t == r2.events["point1"].t
     assert r1.events["point2"].t == r2.events["point2"].t
     assert r1.verdict == r2.verdict == "PASS"
+
+
+def test_overlaps_gap_tolerance_uses_seconds():
+    """gap_tolerance_s は秒単位。idx ベースだと誤って PASS になるケースを防ぐ。"""
+    frames = [
+        {"idx": 0, "t": 0.0, "answers": {"q": "yes"}},
+        {"idx": 1, "t": 1.0, "answers": {"q": "yes"}},
+        {"idx": 2, "t": 2.0, "answers": {"q": "no"}},
+        {"idx": 3, "t": 4.0, "answers": {"q": "yes"}},
+    ]
+    sop = {
+        "sop": {"id": "t", "name": "t"},
+        "questions": [{"id": "q", "ask": "?", "values": ["yes", "no"]}],
+        "events": {
+            "a": {"evidence": "q==yes", "occurrence": 1},
+            "b": {"evidence": "q==yes", "occurrence": 2},
+        },
+        "relations": ["a overlaps b"],
+        "defaults": {"gap_tolerance_s": 2.5, "max_gap_frames": 0},
+    }
+    result = judge(sop, frames)
+    assert result.verdict == "FAIL"
+
+    sop["defaults"]["gap_tolerance_s"] = 3.5
+    result = judge(sop, frames)
+    assert result.verdict == "PASS"
