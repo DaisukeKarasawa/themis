@@ -28,6 +28,9 @@ assert.match(html, /const HISTORY_LIMIT = 5;/, "history limit should be 5");
 assert.match(html, /const HISTORY_STORAGE_KEY = "videoAnalysis.replayHistory.v2";/, "history storage key should be v2");
 assert.doesNotMatch(html, /function detectEvents\(/, "browser judge detectEvents should be removed");
 assert.match(html, /function judgeViaServer\(/, "server judge bridge should exist");
+assert.match(html, /function ensureRelationResults\(/, "relation result backfill should exist");
+assert.match(html, /function needsRelationBackfill\(/, "relation backfill detection should exist");
+assert.match(html, /function patchHistoryEntryResult\(/, "history relation backfill persistence should exist");
 assert.match(html, /id: "konro_inspection"/, "konro preset should exist");
 assert.match(html, /min_frames: 2/, "konro preset should include min_frames overrides");
 
