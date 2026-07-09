@@ -27,6 +27,27 @@ def _as_yaml_safe_str(v: Any) -> str:
     return str(v)
 
 
+def _lookup_token_logprob(resp: Any, tid: int) -> float | None:
+    """mlx-vlm stream_generate の logprobs (vocab サイズ配列) から token id の logprob を取る。"""
+    lp = resp.logprobs
+    if lp is not None:
+        try:
+            val = lp[tid]
+            return float(val.item() if hasattr(val, "item") else val)
+        except Exception:
+            pass
+    top_lp = getattr(resp, "top_logprobs", None)
+    if top_lp:
+        try:
+            for entry in top_lp:
+                if isinstance(entry, (list, tuple)) and len(entry) >= 2 and entry[0] == tid:
+                    v = entry[1]
+                    return float(v.item() if hasattr(v, "item") else v)
+        except Exception:
+            pass
+    return None
+
+
 def build_prompt(questions: list[dict[str, Any]], domain_hint: str, t: float) -> str:
     """SOPの questions: 定義から、1フレーム分の観察プロンプトを自動生成する。"""
     lines = []
@@ -101,14 +122,16 @@ class Observer:
 
         for resp in stream_generate(self.model, self.processor, formatted, image=[image_path],
                                      max_tokens=max_tokens, verbose=False):
-            if pending_question and resp.logprobs is not None:
+            if pending_question:
                 ids = self._cand_ids.get(pending_question, {})
                 raw = {}
                 for v, tid in ids.items():
                     if tid is None:
                         continue
                     try:
-                        raw[v] = math.exp(float(resp.logprobs[tid]))
+                        logp = _lookup_token_logprob(resp, tid)
+                        if logp is not None:
+                            raw[v] = math.exp(logp)
                     except Exception:
                         pass
                 if raw:
