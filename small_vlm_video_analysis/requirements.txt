@@ -1,7 +1,8 @@
 pyyaml>=6.0
 
 # 以下は run / observe コマンド（フレーム抽出とVLM観察）にのみ必要。
-# judge コマンドだけ使うなら pyyaml のみでよい。
+# judge コマンドだけ使うなら pyyaml のみでよい（observe モジュールは import 時に mlx を要求しない）。
 opencv-python>=4.8
+# Apple Silicon + Python 3.10–3.13 推奨。mlx wheels が無い Python では observe/run は不可。
 mlx-vlm>=0.6.0
-mlx>=0.20.0
+mlx>=0.31.2

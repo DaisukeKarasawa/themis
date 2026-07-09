@@ -1,9 +1,13 @@
 """SOP定義ファイル(YAML)の読み込みと最低限のバリデーション。"""
 from __future__ import annotations
+
+import json
 from pathlib import Path
 from typing import Any
+
 import yaml
 
+from observe import confidence_to_answers
 
 REQUIRED_TOP_KEYS = ("sop", "questions", "events", "relations")
 
@@ -22,13 +26,44 @@ def load_sop(path: str | Path) -> dict[str, Any]:
     return doc
 
 
+def _answers_from_raw(raw: str) -> dict[str, str]:
+    cleaned = raw.replace("<|im_end|>", "").strip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end <= start:
+        return {}
+    try:
+        data = json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    answers: dict[str, str] = {}
+    for key, value in data.items():
+        if isinstance(value, str):
+            answers[str(key)] = value
+    return answers
+
+
+def _answers_from_record(record: dict[str, Any]) -> dict[str, str]:
+    confidence = record.get("confidence")
+    if isinstance(confidence, dict) and confidence:
+        return confidence_to_answers(confidence)
+    return _answers_from_raw(record.get("raw", ""))
+
+
 def load_answer_log(path: str | Path) -> list[dict[str, Any]]:
     """observe が出力したログを読み込み、judge が使う形に整形する。"""
-    import json
-    from observe import confidence_to_answers
-
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     frames = []
-    for r in raw:
-        frames.append({"idx": r["idx"], "t": r["t"], "answers": confidence_to_answers(r["confidence"])})
+    for record in raw:
+        if not isinstance(record, dict):
+            continue
+        frames.append(
+            {
+                "idx": record.get("idx", len(frames)),
+                "t": float(record.get("t", 0.0)),
+                "answers": _answers_from_record(record),
+            }
+        )
     return frames

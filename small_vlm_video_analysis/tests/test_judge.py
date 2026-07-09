@@ -41,6 +41,23 @@ def test_missing_step_sop_fails_as_not_detected():
     assert result.coverage < 1.0
 
 
+def test_min_frames_default_is_one_without_defaults():
+    """defaults 未指定時の min_frames 既定値は 1（sop.yaml コメントと一致）。"""
+    frames = [
+        {"idx": 0, "t": 0.0, "answers": {"q": "yes"}},
+        {"idx": 1, "t": 1.0, "answers": {"q": "no"}},
+    ]
+    sop = {
+        "sop": {"id": "t", "name": "t"},
+        "questions": [{"id": "q", "ask": "?", "values": ["yes", "no"]}],
+        "events": {"step": {"evidence": "q==yes"}},
+        "relations": [],
+    }
+    result = judge(sop, frames)
+    assert result.events["step"] is not None
+    assert result.verdict == "PASS"
+
+
 def test_occurrence_is_order_independent():
     """events の宣言順を入れ替えても、occurrence指定があれば結果は変わらない
     (このセッションで見つかった脆さ: occurrence未指定だと宣言順が結果を左右してしまう)。

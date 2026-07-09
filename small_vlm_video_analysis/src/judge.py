@@ -109,7 +109,7 @@ def detect_events(event_defs: dict[str, Any], frames: list[dict],
             spec = {"evidence": spec}
         evidence = spec["evidence"]
         clauses = parse_clauses(evidence)
-        min_frames = spec.get("min_frames", defaults.get("min_frames", 2))
+        min_frames = spec.get("min_frames", defaults.get("min_frames", 1))
         max_gap = spec.get("max_gap_frames", defaults.get("max_gap_frames", 2))
         occurrence = spec.get("occurrence")
         runs = runs_for(evidence, clauses, min_frames, max_gap)
