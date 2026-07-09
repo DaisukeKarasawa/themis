@@ -14,6 +14,11 @@
     --bad: #c0362c;
     --bad-bg: #fbe9e7;
     --line: #ddd;
+    --accent-action: #8ee4d4;
+    --accent-action-hover: #76d8c4;
+    --accent-action-text: #1e5c50;
+    --accent-soft: #e6faf5;
+    --accent-title: #1e5c50;
   }
   * { box-sizing: border-box; }
   body {
@@ -33,7 +38,7 @@
     top: 0;
     z-index: 10;
   }
-  header h1 { font-size: 17px; margin: 0; font-weight: 600; flex: 1; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; flex: 1; color: var(--accent-title); }
   #backToSetupBtn { white-space: nowrap; }
   .badge {
     font-family: "SF Mono", Menlo, ui-monospace, monospace;
@@ -102,13 +107,13 @@
     background: #fff;
     cursor: pointer;
   }
-  button:hover { background: #f0f0f0; }
+  button:hover { background: var(--accent-soft); }
   button.primary {
-    background: #1c1c1c;
-    color: #fff;
-    border-color: #1c1c1c;
+    background: var(--accent-action);
+    color: var(--accent-action-text);
+    border-color: var(--accent-action-text);
   }
-  button.primary:hover { background: #333; }
+  button.primary:hover { background: var(--accent-action-hover); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
 
   table {
@@ -139,8 +144,9 @@
     background: #fff;
   }
   .asset-card.active {
-    border-color: #1c1c1c;
-    box-shadow: 0 0 0 2px rgba(0,0,0,0.05) inset;
+    border-color: var(--accent-action-text);
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 1px var(--accent-action) inset;
   }
   .asset-card h3 {
     font-size: 14px;
@@ -518,12 +524,6 @@
 
   <section class="panel" id="setupPanel">
     <div class="card">
-      <h2>デモシナリオ</h2>
-      <p class="hint">利用するSOPの設定セットを選ぶと、SOP名・チェック項目・動画の前提説明・イベント定義をまとめて反映します。</p>
-      <div id="assetCards" class="asset-grid"></div>
-    </div>
-
-    <div class="card">
       <h2>1. 動画と分析設定</h2>
       <div class="row">
         <label for="videoInput">動画ファイル</label>
@@ -554,12 +554,6 @@
     </div>
 
     <div class="card">
-      <h2>実行履歴</h2>
-      <p class="hint">同じブラウザに直近5件まで保存します。5件を超えると古い結果から削除されます。</p>
-      <div id="historyList" class="history-list"></div>
-    </div>
-
-    <div class="card">
       <h2>2. チェック項目（質問）</h2>
       <table id="questionsTable">
         <thead>
@@ -576,6 +570,22 @@
         <button type="button" id="addQuestionBtn">+ 項目を追加</button>
       </div>
     </div>
+
+    <details class="card" style="padding:0">
+      <summary style="padding:16px 18px">デモシナリオ</summary>
+      <div style="padding:0 18px 16px">
+        <p class="hint">利用するSOPの設定セットを選ぶと、SOP名・チェック項目・動画の前提説明・イベント定義をまとめて反映します。</p>
+        <div id="assetCards" class="asset-grid"></div>
+      </div>
+    </details>
+
+    <details class="card" style="padding:0">
+      <summary id="historySummary" style="padding:16px 18px">実行履歴（0件）</summary>
+      <div style="padding:0 18px 16px">
+        <p class="hint">同じブラウザに直近5件まで保存します。5件を超えると古い結果から削除されます。</p>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </details>
 
     <details class="card" style="padding:0">
       <summary style="padding:16px 18px">3. 高度な設定（イベント・relations）</summary>
@@ -801,6 +811,7 @@ const progressFill = document.getElementById("progressFill");
 const progressText = document.getElementById("progressText");
 const errorBox = document.getElementById("errorBox");
 const historyList = document.getElementById("historyList");
+const historySummary = document.getElementById("historySummary");
 const replayHistoryList = document.getElementById("replayHistoryList");
 const setupPanel = document.getElementById("setupPanel");
 const replayMain = document.getElementById("replayMain");
@@ -967,6 +978,10 @@ function renderHistoryList(container) {
 function renderHistoryLists() {
   renderHistoryList(historyList);
   renderHistoryList(replayHistoryList);
+  if (historySummary) {
+    const count = trimHistoryEntries(loadStoredHistoryEntries()).length;
+    historySummary.textContent = `実行履歴（${count}件）`;
+  }
 }
 
 function createRemoveButton(onRemove) {
