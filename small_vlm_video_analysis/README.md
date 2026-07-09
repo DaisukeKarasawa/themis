@@ -107,7 +107,7 @@ relations:                           # Phase 2 — イベント間の時間的�
 
 ## リポジトリ構成
 
-```
+```text
 small_vlm_video_analysis/
 ├── src/
 │   ├── observe.py   # Phase 1: questionsからプロンプト生成 + VLM呼び出し + 信頼度抽出
