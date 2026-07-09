@@ -12,7 +12,7 @@
 
 ---
 
-### Task 1: Add accent CSS variables
+## Task 1: Add accent CSS variables
 
 **Files:**
 - Modify: `replay.html:7-17` (`:root` block)
@@ -45,7 +45,7 @@ Expected: new accent variables only in this step.
 
 ---
 
-### Task 2: Style title and buttons
+## Task 2: Style title and buttons
 
 **Files:**
 - Modify: `replay.html:36-111`
@@ -75,7 +75,7 @@ Expected: no changes to `.badge`, `--ok`, `--bad`, `--unclear` rules.
 
 ---
 
-### Task 3: Validate
+## Task 3: Validate
 
 **Files:**
 - Test: visual only (no automated CSS test exists)
@@ -101,7 +101,7 @@ Expected: only `replay.html` (plus plan/spec docs if committed separately)
 
 ---
 
-### Task 4: Commit (only if user requests)
+## Task 4: Commit (only if user requests)
 
 **Files:**
 - Modify: `replay.html`
