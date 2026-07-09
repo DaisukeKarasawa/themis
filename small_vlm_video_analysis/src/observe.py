@@ -9,10 +9,13 @@
 SOP定義ファイルの `questions:` セクションだけを見てプロンプトを組み立てる。
 """
 from __future__ import annotations
+import json
 import math
 import re
 import time
 from typing import Any
+
+GROUNDING_GRID = 1000
 
 
 def _as_yaml_safe_str(v: Any) -> str:
@@ -46,6 +49,89 @@ def _lookup_token_logprob(resp: Any, tid: int) -> float | None:
         except Exception:
             pass
     return None
+
+
+def clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def convert_bbox_thousand_to_normalized(bbox: list[float]) -> list[float]:
+    """Qwen3-VL の 0–1000 相対座標を 0–1 に変換する。"""
+    x1, y1, x2, y2 = bbox
+    return [
+        clamp01(x1 / GROUNDING_GRID),
+        clamp01(y1 / GROUNDING_GRID),
+        clamp01(x2 / GROUNDING_GRID),
+        clamp01(y2 / GROUNDING_GRID),
+    ]
+
+
+def _bbox_area(bbox: list[float]) -> float:
+    x1, y1, x2, y2 = bbox
+    return max(0.0, x2 - x1) * max(0.0, y2 - y1)
+
+
+def pick_largest_bbox(bboxes: list[list[float]]) -> list[float] | None:
+    if not bboxes:
+        return None
+    return max(bboxes, key=_bbox_area)
+
+
+def _extract_bbox_2d_objects(data: Any) -> list[list[float]]:
+    found: list[list[float]] = []
+    if isinstance(data, dict):
+        bbox = data.get("bbox_2d")
+        if isinstance(bbox, list) and len(bbox) == 4:
+            try:
+                found.append([float(v) for v in bbox])
+            except (TypeError, ValueError):
+                pass
+        for value in data.values():
+            found.extend(_extract_bbox_2d_objects(value))
+    elif isinstance(data, list):
+        for item in data:
+            found.extend(_extract_bbox_2d_objects(item))
+    return found
+
+
+def parse_grounding_bbox_from_raw(raw: str) -> dict[str, Any]:
+    """VLM 生出力から bbox_2d を抽出し、正規化 bbox を返す。"""
+    cleaned = raw.replace("<|im_end|>", "").strip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return {"status": "failed"}
+    try:
+        data = json.loads(cleaned[start : end + 1])
+    except json.JSONDecodeError:
+        return {"status": "failed"}
+
+    bboxes = _extract_bbox_2d_objects(data)
+    largest = pick_largest_bbox(bboxes)
+    if largest is None:
+        return {"status": "failed"}
+
+    x1, y1, x2, y2 = largest
+    norm = convert_bbox_thousand_to_normalized(
+        [min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)]
+    )
+    if norm[2] <= norm[0] or norm[3] <= norm[1]:
+        return {"status": "failed"}
+    return {"status": "ok", "bbox": norm}
+
+
+def build_grounding_prompt(question: dict[str, Any], domain_hint: str, t: float) -> str:
+    """単一チェック項目の根拠領域を bbox で返すよう促すプロンプト。"""
+    qid = question["id"]
+    ask = question["ask"]
+    return (
+        f"{domain_hint}（時刻 t={t}s）。\n"
+        f"チェック項目 [{qid}]: {ask}\n"
+        "この項目への回答が yes である根拠となる対象物・部位を画像内で特定し、"
+        "その領域のバウンディングボックスを JSON で出力してください。\n"
+        '形式: {"bbox_2d": [x_min, y_min, x_max, y_max]}\n'
+        "座標は 0〜1000 の相対値（左上原点）です。JSON のみ出力してください。"
+    )
 
 
 def build_prompt(questions: list[dict[str, Any]], domain_hint: str, t: float) -> str:
@@ -158,6 +244,48 @@ class Observer:
             pass
         mx.clear_cache()
         return {"raw": full_text, "confidence": confidence, "mem": mem}
+
+    def ground(
+        self,
+        image_path: str,
+        questions: list[dict[str, Any]],
+        t: float,
+        domain_hint: str,
+        max_tokens: int = 128,
+    ) -> dict:
+        """チェック項目ごとに根拠領域 bbox を取得する（Phase 1 補助・判定には使わない）。"""
+        from mlx_vlm.generate import stream_generate
+        from mlx_vlm.prompt_utils import apply_chat_template
+
+        mx = self._mx
+        groundings: dict[str, dict[str, Any]] = {}
+        raw_parts: list[str] = []
+
+        for question in questions:
+            qid = question["id"]
+            prompt = build_grounding_prompt(question, domain_hint, t)
+            formatted = apply_chat_template(self.processor, self.config, prompt, num_images=1)
+            full_text = ""
+            for resp in stream_generate(
+                self.model,
+                self.processor,
+                formatted,
+                image=[image_path],
+                max_tokens=max_tokens,
+                verbose=False,
+            ):
+                tok_id = resp.token
+                full_text += self.processor.tokenizer.decode([tok_id]) if tok_id is not None else ""
+
+            parsed = parse_grounding_bbox_from_raw(full_text)
+            groundings[qid] = parsed
+            raw_parts.append(f"[{qid}] {full_text.strip()}")
+
+        try:
+            mx.clear_cache()
+        except Exception:
+            pass
+        return {"raw": "\n".join(raw_parts), "groundings": groundings}
 
 
 def confidence_to_answers(confidence: dict[str, dict]) -> dict[str, str]:

@@ -320,6 +320,16 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def mock_analyze(payload: dict[str, Any]) -> dict[str, Any]:
+    ground_for = payload.get("ground_for") or []
+    if ground_for:
+        source = payload.get("grounding_source") or "analyze"
+        groundings = {
+            qid: {"status": "failed", "source": source}
+            for qid in ground_for
+            if isinstance(qid, str) and qid
+        }
+        return {"raw": "{}", "answers": {}, "probs": {}, "groundings": groundings}
+
     answers = {q["id"]: "no" for q in payload.get("questions", []) if q.get("id")}
     return {"raw": json.dumps(answers, ensure_ascii=False), "answers": answers, "probs": {}}
 

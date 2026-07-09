@@ -209,6 +209,10 @@ class VlmAnalyzer:
             if not isinstance(q, dict) or not q.get("id"):
                 raise ValueError(f"questions[{i}] must be an object with a non-empty id")
 
+        ground_for = payload.get("ground_for") or []
+        if ground_for:
+            return self._analyze_grounding(payload, questions, ground_for)
+
         self._ensure_loaded()
         domain_hint = payload.get("domain_hint") or "これは作業動画の1フレームです"
         t = float(payload.get("t", 0))
@@ -244,6 +248,51 @@ class VlmAnalyzer:
             "raw": raw,
             "answers": answers,
             "probs": probs,
+        }
+
+    def _analyze_grounding(
+        self,
+        payload: dict[str, Any],
+        questions: list[dict[str, Any]],
+        ground_for: list[str],
+    ) -> dict[str, Any]:
+        self._ensure_loaded()
+        domain_hint = payload.get("domain_hint") or "これは作業動画の1フレームです"
+        t = float(payload.get("t", 0))
+        image_data = payload.get("image")
+        if not image_data:
+            raise ValueError("image is required")
+
+        q_by_id = {q["id"]: q for q in questions if q.get("id")}
+        ground_questions = [q_by_id[qid] for qid in ground_for if qid in q_by_id]
+        if not ground_questions:
+            raise ValueError("ground_for に一致する questions がありません")
+
+        source = payload.get("grounding_source") or "analyze"
+        image_path = self._decode_image(image_data)
+        try:
+            with self._lock:
+                record = self._observer.ground(
+                    image_path,
+                    ground_questions,
+                    t=t,
+                    domain_hint=domain_hint,
+                )
+        finally:
+            os.unlink(image_path)
+
+        groundings: dict[str, dict[str, Any]] = {}
+        for qid, parsed in record.get("groundings", {}).items():
+            entry: dict[str, Any] = {"status": parsed.get("status", "failed"), "source": source}
+            if parsed.get("status") == "ok" and parsed.get("bbox"):
+                entry["bbox"] = parsed["bbox"]
+            groundings[qid] = entry
+
+        return {
+            "raw": record.get("raw", ""),
+            "answers": {},
+            "probs": {},
+            "groundings": groundings,
         }
 
     def warm_up(self) -> None:

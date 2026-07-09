@@ -99,6 +99,26 @@ def test_analyze_endpoint_uses_api_path(mock_server):
     )
     assert status == 200
     assert body["answers"]["q1"] == "no"
+    assert "groundings" not in body
+
+
+def test_analyze_ground_for_returns_groundings(mock_server):
+    base, _ = mock_server
+    status, body = _post_json(
+        f"{base}/api/vlm/analyze",
+        {
+            "image": "data:image/jpeg;base64,/9j/4AAQ",
+            "questions": [{"id": "knob", "ask": "つまみは見えるか", "values": ["yes", "no"]}],
+            "ground_for": ["knob"],
+            "grounding_source": "analyze",
+            "t": 1.0,
+        },
+        headers={"Origin": "http://127.0.0.1:8765"},
+    )
+    assert status == 200
+    assert body["answers"] == {}
+    assert body["groundings"]["knob"]["status"] == "failed"
+    assert body["groundings"]["knob"]["source"] == "analyze"
 
 
 def test_analyze_rejects_question_missing_id():
