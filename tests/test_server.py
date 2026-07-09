@@ -101,6 +101,20 @@ def test_analyze_endpoint_uses_api_path(mock_server):
     assert body["answers"]["q1"] == "no"
 
 
+def test_analyze_rejects_question_missing_id():
+    import vlm_backend
+
+    analyzer = vlm_backend.VlmAnalyzer()
+    with pytest.raises(ValueError, match="non-empty id"):
+        analyzer.analyze(
+            {
+                "image": "data:image/jpeg;base64,/9j/4AAQ",
+                "questions": [{"ask": "test", "values": ["yes", "no"]}],
+                "t": 0,
+            }
+        )
+
+
 def test_judge_endpoint_returns_python_verdict(mock_server):
     base, _ = mock_server
     import yaml

@@ -287,6 +287,9 @@ class Handler(BaseHTTPRequestHandler):
         except urllib.error.URLError as exc:
             self._send_json_error(502, f"Upstream VLM unreachable: {exc.reason}")
             return
+        except ValueError as exc:
+            self._send_json_error(400, str(exc))
+            return
         except Exception as exc:
             self._send_json_error(500, str(exc))
             return

@@ -205,6 +205,9 @@ class VlmAnalyzer:
         questions = payload.get("questions") or []
         if not questions:
             raise ValueError("questions is required")
+        for i, q in enumerate(questions):
+            if not isinstance(q, dict) or not q.get("id"):
+                raise ValueError(f"questions[{i}] must be an object with a non-empty id")
 
         self._ensure_loaded()
         domain_hint = payload.get("domain_hint") or "これは作業動画の1フレームです"
