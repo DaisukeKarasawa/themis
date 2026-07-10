@@ -34,8 +34,13 @@ assert.match(html, /data-help="evidence-region"/, "grounding help topic should e
 assert.match(html, /function ensureRelationResults\(/, "relation result backfill should exist");
 assert.match(html, /function needsRelationBackfill\(/, "relation backfill detection should exist");
 assert.match(html, /function patchHistoryEntryResult\(/, "history relation backfill persistence should exist");
-assert.match(html, /id: "konro_inspection"/, "konro preset should exist");
-assert.match(html, /min_frames: 2/, "konro preset should include min_frames overrides");
+assert.match(html, /id: "desk_task"/, "desk_task preset should exist");
+assert.match(html, /id: "desk_cleanup_check"/, "desk_cleanup_check preset should exist");
+assert.match(
+  html,
+  /fold_handkerchief_action before handkerchief_folded/,
+  "desk_cleanup_check should include before relations"
+);
 
 const sandbox = {};
 vm.createContext(sandbox);

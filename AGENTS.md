@@ -98,7 +98,7 @@ python src/cli.py judge \
 - Git 管理不要と明らかなパスは `.gitignore` に追記する（忘れない）。
 - デモ UI では本線（動画設定・チェック項目・CTA）を常時表示し、シナリオプリセット・実行履歴・判定ルール（イベント・relations）などメイン機能以外は `<details>` でデフォルト折りたたみにする。判定ルールはチェック項目カード内のネスト `<details>`。
 - デモは非エンジニア向け。`replay.html` には文脈付きヘルプ（ブロック横の吹き出しアイコン→クリックでポップオーバー、簡潔な非技術者向け文面）を埋め込む。ヘルプボタンはアイコンのみ（「説明」ラベル非表示、`aria-label` は維持）。設定画面の「デモの進め方」「デモシナリオ」「実行履歴」、結果画面の「フレーム再生」「実行履歴」、ヘッダーの「判定結果（PASS/FAIL・確認率）」にはヘルプを付けない。
-- デモ UI の判定表記は英語の PASS/FAIL に統一する（relations バッジも OK/NG ではなく PASS/FAIL）。relations サマリーは `n / total ルールを満たしています` のみとし、「（n 件の問題）」は付けない。
+- デモ UI の判定表記は英語の PASS/FAIL に統一する（relations バッジも OK/NG ではなく PASS/FAIL）。relations サマリーは `n / total ルールを満たしています` のみとし、「（n 件の問題）」は付けない。relations 結果パネルには coverage 注記（例: `※ 必要イベントの未検出あり（coverage n%）`）を表示しない（ヘッダーの coverage 表示と履歴の coverage メタデータは可）。
 
 ## Learned Workspace Facts
 
@@ -106,7 +106,7 @@ python src/cli.py judge \
 - `small_vlm_video_analysis/.git` がネストされている。初回コミット前に単一リポジトリ化（nested `.git` 削除）か submodule 化を決める。
 - VLM ソースのデフォルト解決順（`VLM_SRC` 未設定時）: プロジェクト内 `small_vlm_video_analysis/src` → 兄弟 `../small_vlm_video_analysis/src`。
 - リモート `origin` は `https://github.com/DaisukeKarasawa/video-analysis.git`、デフォルトブランチは `main`。ラッパー開発は `feat/vlm-replay-wrapper` など feature ブランチで進める。
-- デモ用 SOP プリセット（`desk_task` / `desk_cleanup_check` / `safety_equipment` 等）は `replay.html` の `SOP_ASSETS` に埋め込み。高度な設定は `eventDefs` と `relations`（`before` / `overlaps` / `not`）で表現する。
+- デモ用 SOP プリセットは `desk_task` と `desk_cleanup_check` のみ。`replay.html` の `SOP_ASSETS` に埋め込み。高度な設定は `eventDefs` と `relations`（`before` / `overlaps` / `not`）で表現する。
 - `#setupPanel` の並び: 0. デモの進め方（常時表示）→ 1. 動画と分析設定 → 2. チェック項目（内側に折りたたみの判定ルール: イベント・relations）→ 折りたたみ（デモシナリオ・実行履歴）。履歴 summary は `実行履歴` のみ（件数表記なし）。
 - `replay.html` のページ幅は `:root` の `--page-max-width`（例: `min(1680px, calc(100vw - 32px))`）で制御する。旧 `1180px` 固定上限は使わない。
 - replay 画面は `section.left`（動画・コントロール）を sticky、`section.right` が通常フローで縦スクロールを駆動する。
