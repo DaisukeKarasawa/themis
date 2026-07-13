@@ -4,14 +4,16 @@
 
 ## プロジェクト概要
 
-作業動画の各フレームをローカル小型 VLM（Qwen3-VL / Apple Silicon / mlx-vlm）に問い合わせ、`replay.html` 上で対話的に SOP 準拠を確認するラッパー。
+作業動画の各フレームをローカル小型 VLM（Qwen3-VL / Apple Silicon / mlx-vlm）に問い合わせ、`replay.html` 上で対話的に SOP 準拠を確認するラッパー。`draft.html` で動画からチェック項目の草案を生成し、編集後に `replay.html` へ渡せる。
 
 | パス | 役割 |
 |---|---|
-| `server.py` | `replay.html` を配信し、`/api/vlm/analyze`・`/api/judge` 等で VLM / 判定を呼ぶ HTTP サーバー |
-| `vlm_backend.py` | `small_vlm_video_analysis` の `Observer` へのブリッジ |
+| `server.py` | `replay.html` / `draft.html` を配信し、`/api/vlm/analyze`・`/api/vlm/draft`・`/api/judge` 等で VLM / 判定を呼ぶ HTTP サーバー |
+| `vlm_backend.py` | `small_vlm_video_analysis` の `Observer` へのブリッジ（閉じた観察 + 自由形式草案生成） |
+| `draft_normalize.py` | VLM 草案 JSON の正規化（`replay.html` エディタ shape へ） |
 | `run.sh` | `.venv/bin/python3 server.py` を起動 |
-| `replay.html` | ブラウザ UI（フレーム再生 + VLM 質問） |
+| `replay.html` | ブラウザ UI（フレーム再生 + VLM 質問 + PASS/FAIL 判定） |
+| `draft.html` | ブラウザ UI（動画から SOP 草案生成・編集・チェック画面へ受け渡し） |
 | `small_vlm_video_analysis/` | observe / judge パイプライン本体（別リポジトリ由来） |
 | `requirements.txt` | ルート依存（mlx-vlm, opencv-python 等） |
 
@@ -19,7 +21,7 @@
 
 - **対象 OS**: macOS（Apple Silicon）。mlx-vlm は Apple Silicon 前提。
 - **Python**: 3.10+。ルートは `.venv` を使う（`run.sh` / `server.py` が参照）。
-- **観察と判定の分離**: VLM はフレーム単位の質問回答のみ。PASS/FAIL 判定は決定論的ルールエンジン（`judge.py`）。`replay.html` は `/api/judge` 経由で Python 判定結果を表示し、ブラウザ側で独自判定しない。
+- **観察と判定の分離**: VLM はフレーム単位の質問回答のみ。PASS/FAIL 判定は決定論的ルールエンジン（`judge.py`）。`replay.html` は `/api/judge` 経由で Python 判定結果を表示し、ブラウザ側で独自判定しない。草案生成（`/api/vlm/draft`）はラッパー側の自由形式生成であり、判定には使わない。
 - **用語**: `questions` / `answers` / `events` / `relations`。旧称 `cue` は使わない。
 - **ネスト Git**: `small_vlm_video_analysis/.git` が残っていると親リポジトリからはサブモジュール扱いになる。単一リポジトリに統合するなら nested `.git` を削除するか、正式に submodule 化する。
 
@@ -55,7 +57,7 @@ python src/cli.py judge \
 変更後の最低限の確認:
 
 1. `small_vlm_video_analysis` で `pytest` が通る
-2. ルートで `pytest tests/test_server.py` が通る
+2. ルートで `pytest tests/test_server.py tests/test_draft_normalize.py` が通る
 3. VLM なし `judge` コマンドで PASS が維持される
 4. `./run.sh` でサーバーが起動し、`replay.html` が開ける（VLM 変更時は実機確認）
 
@@ -114,6 +116,8 @@ python src/cli.py judge \
 - 結果画面 `section.right` の見出しは「チェック項目の結果」「イベント検出」「relations の結果」。
 - `replay.html` の yes 回答には spatial grounding の根拠枠を表示できる（`/api/vlm/analyze` の `ground_for`、分析時は yes のみ・不足はスクラブ時オンデマンド）。判定は `answers` のみで bbox は説明用。
 - `replay.html` の実行履歴は localStorage キー `videoAnalysis.replayHistory.v2` に直近 5 件を保存し、分析 `result` 全文（フレーム含む）を保持する。「表示」は `showReplay` でリプレイビューを復元する。メタデータのみのレガシー項目はサマリー alert にフォールバックする。base64 フレームが大きいため localStorage 容量超過で保存失敗しうる。
+- `draft.html` は `/api/vlm/draft` で動画フレーム（最大 8）から SOP 草案を生成する。`questions` は必須、`eventDefs` / `relations` はベストエフォート提案（UI で「要確認」）。チェック画面への受け渡しは localStorage キー `videoAnalysis.sopDraft.v1` + `/replay.html?from=draft`。草案ページでは PASS/FAIL 判定しない。
+- 草案プロンプト（`vlm_backend.build_draft_prompt`）は動作・状態・手と物の関係を優先し、「〜が置かれているか」だけの存在確認を非優先とする。良い例／悪い例を明示。複数フレーム時のみ順序が見える場合に eventDefs/relations を誘導。UI hint（`draft.html`）も同方針。存在確認の機械的フィルタはしない（プロンプト誘導のみ）。
 - 設計 spec / 実装 plan は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。
 
 ## 参照
