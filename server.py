@@ -24,6 +24,8 @@ USE_MOCK = os.environ.get("VLM_USE_MOCK", "").strip() in {"1", "true", "yes"}
 VENV_PYTHON = ROOT / ".venv" / "bin" / "python3"
 
 MAX_ANALYZE_BODY_BYTES = 10 * 1024 * 1024
+MAX_DRAFT_BODY_BYTES = 30 * 1024 * 1024
+MAX_DRAFT_IMAGES = 8
 MAX_JUDGE_BODY_BYTES = 2 * 1024 * 1024
 ANALYZE_MIN_INTERVAL_S = 0.25
 
@@ -133,19 +135,25 @@ def _origin_allowed(origin: str | None) -> bool:
     return any(origin == prefix or origin.startswith(f"{prefix}:") for prefix in ALLOWED_ORIGIN_PREFIXES)
 
 
+STATIC_HTML_PAGES = {
+    "/": "replay.html",
+    "/replay.html": "replay.html",
+    "/draft.html": "draft.html",
+}
+
+
 def _static_path_allowed(path: str) -> bool:
     clean = path.split("?", 1)[0]
-    if clean in {"/", "/replay.html"}:
-        return True
-    return False
+    return clean in STATIC_HTML_PAGES
 
 
 def _resolve_static_file(path: str) -> Path | None:
     clean = path.split("?", 1)[0]
-    if clean in {"/", "/replay.html"}:
-        target = ROOT / "replay.html"
-        return target if target.is_file() else None
-    return None
+    filename = STATIC_HTML_PAGES.get(clean)
+    if not filename:
+        return None
+    target = ROOT / filename
+    return target if target.is_file() else None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -211,6 +219,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/vlm/analyze":
             self._handle_analyze()
+            return
+
+        if path == "/api/vlm/draft":
+            self._handle_draft()
             return
 
         self.send_error(404, "Not found")
@@ -304,6 +316,72 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded)
 
+    def _handle_draft(self) -> None:
+        global _last_analyze_at
+        body = self._read_body(MAX_DRAFT_BODY_BYTES)
+        if body is None:
+            return
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON")
+            return
+
+        images = payload.get("images") or []
+        if not isinstance(images, list) or not images:
+            self._send_json_error(400, "images is required")
+            return
+        if len(images) > MAX_DRAFT_IMAGES:
+            self._send_json_error(400, f"images must contain at most {MAX_DRAFT_IMAGES} frames")
+            return
+
+        with _rate_lock:
+            now = time.monotonic()
+            wait_s = ANALYZE_MIN_INTERVAL_S - (now - _last_analyze_at)
+            if wait_s > 0:
+                time.sleep(wait_s)
+            _last_analyze_at = time.monotonic()
+
+        if not _analyze_semaphore.acquire(blocking=False):
+            self._send_json_error(429, "Draft busy; retry shortly")
+            return
+
+        try:
+            if VLM_UPSTREAM:
+                result = proxy_upstream_draft(payload)
+                mode = "proxy"
+            elif USE_MOCK:
+                result = mock_draft(payload)
+                mode = "mock"
+            else:
+                warm_up_vlm()
+                analyzer = get_analyzer()
+                result = analyzer.draft(payload)
+                mode = "vlm"
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:300]
+            self._send_json_error(exc.code, f"Upstream draft error: {detail}")
+            return
+        except urllib.error.URLError as exc:
+            self._send_json_error(502, f"Upstream draft unreachable: {exc.reason}")
+            return
+        except ValueError as exc:
+            self._send_json_error(400, str(exc))
+            return
+        except Exception as exc:
+            self._send_json_error(500, str(exc))
+            return
+        finally:
+            _analyze_semaphore.release()
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("X-Draft-Mode", mode)
+        encoded = json.dumps(result, ensure_ascii=False).encode("utf-8")
+        self.send_header("Content-Length", str(len(encoded)))
+        self.end_headers()
+        self.wfile.write(encoded)
+
     def _send_json(self, payload: dict[str, Any], status: int = 200) -> None:
         encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
@@ -332,6 +410,60 @@ def mock_analyze(payload: dict[str, Any]) -> dict[str, Any]:
 
     answers = {q["id"]: "no" for q in payload.get("questions", []) if q.get("id")}
     return {"raw": json.dumps(answers, ensure_ascii=False), "answers": answers, "probs": {}}
+
+
+def mock_draft(payload: dict[str, Any]) -> dict[str, Any]:
+    work_context = str(payload.get("work_context") or payload.get("domain_hint") or "").strip()
+    draft = {
+        "sop": {"id": "mock_draft", "name": "モック作業チェック草案"},
+        "domain_hint": work_context or "これはデスク上の作業を上から撮った動画の1フレームです",
+        "questions": [
+            {"id": "hands_on_tool", "ask": "作業者の手が工具または対象物に触れているか", "values": ["yes", "no"]},
+            {"id": "item_moved", "ask": "作業者が対象物を移動している最中か", "values": ["yes", "no"]},
+            {"id": "item_in_container", "ask": "対象物が容器の中に入っているか", "values": ["yes", "no"]},
+            {"id": "workspace_clear", "ask": "作業スペースに不要な物が残っていないか", "values": ["yes", "no"]},
+        ],
+        "eventDefs": [
+            {"name": "step_hands_on_tool", "evidence": "hands_on_tool==yes", "occurrence": 1, "min_frames": 1},
+            {"name": "step_item_moved", "evidence": "item_moved==yes", "occurrence": 1, "min_frames": 1},
+            {"name": "step_item_in_container", "evidence": "item_in_container==yes", "occurrence": 1, "min_frames": 1},
+            {"name": "step_workspace_clear", "evidence": "workspace_clear==yes", "occurrence": 1, "min_frames": 1},
+        ],
+        "relations": [
+            "step_hands_on_tool before step_item_moved",
+            "step_item_moved overlaps step_item_in_container",
+            "step_item_in_container before step_workspace_clear",
+        ],
+        "defaults": {"order_tolerance_s": 0, "min_frames": 1, "max_gap_frames": 2},
+    }
+    return {"raw": json.dumps(draft, ensure_ascii=False), "draft": draft}
+
+
+def proxy_upstream_draft(payload: dict[str, Any]) -> dict[str, Any]:
+    upstream = VLM_UPSTREAM
+    if upstream.endswith("/api/vlm/analyze"):
+        upstream = upstream[: -len("/api/vlm/analyze")] + "/api/vlm/draft"
+    elif upstream.endswith("/analyze"):
+        upstream = upstream[: -len("/analyze")] + "/draft"
+    else:
+        upstream = upstream.rstrip("/") + "/draft"
+
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        upstream,
+        data=data,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=300) as resp:
+        text = resp.read().decode("utf-8")
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict) and "draft" in parsed:
+            return parsed
+    except json.JSONDecodeError:
+        pass
+    return {"raw": text, "draft": {}}
 
 
 def proxy_upstream(payload: dict[str, Any]) -> dict[str, Any]:
@@ -393,7 +525,9 @@ def main() -> None:
     if port != PORT:
         print(f"Note: port {PORT} is busy; using {port} instead.", flush=True)
     print(f"Open http://127.0.0.1:{port}/replay.html", flush=True)
+    print(f"Open http://127.0.0.1:{port}/draft.html", flush=True)
     print(f"Analyze endpoint: http://127.0.0.1:{port}/api/vlm/analyze", flush=True)
+    print(f"Draft endpoint: http://127.0.0.1:{port}/api/vlm/draft", flush=True)
     print(f"Judge endpoint: http://127.0.0.1:{port}/api/judge", flush=True)
     if VLM_UPSTREAM:
         print(f"Proxying VLM requests to: {VLM_UPSTREAM}", flush=True)

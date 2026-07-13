@@ -71,11 +71,15 @@ def mock_server(monkeypatch):
         thread.join(timeout=2)
 
 
-def test_serves_replay_html_only(mock_server):
+def test_serves_allowed_html_pages(mock_server):
     base, _ = mock_server
     with urllib.request.urlopen(f"{base}/replay.html", timeout=5) as resp:
         assert resp.status == 200
         assert "動画SOPチェックデモ" in resp.read().decode("utf-8")
+
+    with urllib.request.urlopen(f"{base}/draft.html", timeout=5) as resp:
+        assert resp.status == 200
+        assert "作業項目草案デモ" in resp.read().decode("utf-8")
 
     with pytest.raises(urllib.error.HTTPError) as denied:
         urllib.request.urlopen(f"{base}/server.py", timeout=5)
@@ -84,6 +88,23 @@ def test_serves_replay_html_only(mock_server):
     with pytest.raises(urllib.error.HTTPError) as dot_denied:
         urllib.request.urlopen(f"{base}/.env", timeout=5)
     assert dot_denied.value.code == 404
+
+
+def test_draft_endpoint_returns_questions(mock_server):
+    base, _ = mock_server
+    status, body = _post_json(
+        f"{base}/api/vlm/draft",
+        {
+            "images": ["data:image/jpeg;base64,/9j/4AAQ"],
+            "frame_times": [0.0],
+            "work_context": "デスク作業",
+        },
+        headers={"Origin": "http://127.0.0.1:8765"},
+    )
+    assert status == 200
+    assert isinstance(body, dict)
+    assert body["draft"]["questions"]
+    assert body["draft"]["sop"]["id"] == "mock_draft"
 
 
 def test_analyze_endpoint_uses_api_path(mock_server):
