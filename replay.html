@@ -54,6 +54,24 @@
     text-underline-offset: 3px;
   }
   header h1.nav-link:hover { color: var(--accent-action-text); }
+  .page-nav {
+    display: flex;
+    gap: 8px;
+    font-size: 13px;
+  }
+  .page-nav a {
+    color: var(--accent-action-text);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(30, 92, 80, 0.2);
+    background: #fff;
+  }
+  .page-nav a:hover { background: var(--accent-soft); }
+  .page-nav a[aria-current="page"] {
+    background: var(--accent-action);
+    border-color: var(--accent-action-text);
+  }
   .replay-sop-name {
     margin: 0 0 12px;
     padding-bottom: 4px;
@@ -853,6 +871,10 @@
 <body>
   <header>
     <h1 id="sopName">動画SOPチェックデモ</h1>
+    <nav class="page-nav" aria-label="ページ切り替え">
+      <a href="/replay.html" aria-current="page">チェック</a>
+      <a href="/draft.html">草案</a>
+    </nav>
     <span id="coverageWrap" hidden>
       <span id="coverage"></span>
       <span id="coverageRing" role="img" aria-hidden="true"></span>
@@ -1083,6 +1105,7 @@
 <script>
 const DEFAULT_TITLE = "動画SOPチェックデモ";
 const HISTORY_STORAGE_KEY = "videoAnalysis.replayHistory.v2";
+const SOP_DRAFT_STORAGE_KEY = "videoAnalysis.sopDraft.v1";
 const HISTORY_LIMIT = 5;
 
 const HELP_TOPICS = {
@@ -1695,6 +1718,35 @@ function applyConfigToEditor(config) {
   sopTitleInput.value = config.sop?.name || "";
   domainHintInput.value = config.domain_hint || "";
   clearError();
+}
+
+function tryApplyDraftFromStorage() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("from") !== "draft") return;
+
+  const raw = localStorage.getItem(SOP_DRAFT_STORAGE_KEY);
+  if (!raw) return;
+
+  let config;
+  try {
+    config = JSON.parse(raw);
+  } catch (err) {
+    console.warn("草案の読み込みに失敗しました:", err);
+    return;
+  }
+
+  if (isEditorDirty()) {
+    const ok = window.confirm(
+      "草案をチェック画面に読み込みます。現在の設定を上書きします。よろしいですか？"
+    );
+    if (!ok) return;
+  }
+
+  applyConfigToEditor(config);
+  renderAssetCards(config.sop?.id || editorState.sopId);
+  localStorage.removeItem(SOP_DRAFT_STORAGE_KEY);
+  showSetup();
+  history.replaceState({}, "", window.location.pathname);
 }
 
 function applyAssetConfig(asset) {
@@ -2740,6 +2792,7 @@ window.addEventListener("keydown", (e) => {
 
 initFileProtocolGuard();
 initAnalyzeModeBanner();
+tryApplyDraftFromStorage();
 </script>
 </body>
 </html>
