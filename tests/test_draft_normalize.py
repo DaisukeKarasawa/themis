@@ -1,0 +1,62 @@
+"""draft_normalize.py の単体テスト（VLM 不要）。"""
+from __future__ import annotations
+
+import pytest
+
+from draft_normalize import extract_json_object, normalize_draft, slugify_id
+
+
+def test_slugify_id_handles_japanese_and_digits():
+    assert slugify_id("手が動いている") == "手が動いている"
+    assert slugify_id("123abc").startswith("q_")
+
+
+def test_normalize_draft_requires_questions():
+    with pytest.raises(ValueError, match="questions"):
+        normalize_draft({"questions": []})
+
+
+def test_normalize_draft_coerces_questions_and_derives_events():
+    raw = {
+        "sop": {"id": "My Draft", "name": "テスト草案"},
+        "domain_hint": "デスク作業",
+        "questions": [
+            {"id": "pick_tool", "ask": "作業者が工具を持っているか"},
+            {"ask": "机が片付いているか", "id": "desk_clear"},
+        ],
+        "eventDefs": [
+            {"name": "pick_tool", "evidence": "pick_tool==yes"},
+            {"name": "step_desk_clear", "evidence": "desk_clear==yes"},
+            {"name": "bad_event", "evidence": "missing==yes"},
+        ],
+        "relations": [
+            "pick_tool before step_desk_clear",
+            "pick_tool before missing_event",
+            "invalid relation",
+        ],
+    }
+    draft = normalize_draft(raw)
+    assert len(draft["questions"]) == 2
+    assert all(q["values"] == ["yes", "no"] for q in draft["questions"])
+    assert draft["sop"]["id"] == "my_draft"
+    assert any(e["name"] == "pick_tool" for e in draft["eventDefs"])
+    assert "pick_tool before step_desk_clear" in draft["relations"]
+    assert all("missing" not in rel for rel in draft["relations"])
+
+
+def test_extract_json_object_from_wrapped_text():
+    raw = '説明文\n{"questions": [{"id": "a", "ask": "test?"}]}\n'
+    data = extract_json_object(raw)
+    assert data["questions"][0]["id"] == "a"
+
+
+def test_extract_json_object_from_markdown_fence():
+    raw = '```json\n{"questions": [{"id": "b", "ask": "ok?"}]}\n```'
+    data = extract_json_object(raw)
+    assert data["questions"][0]["id"] == "b"
+
+
+def test_extract_json_object_repairs_truncated():
+    raw = '{"sop": {"id": "x", "name": "n"}, "questions": [{"id": "a", "ask": "q?"}'
+    data = extract_json_object(raw)
+    assert data["questions"][0]["id"] == "a"
