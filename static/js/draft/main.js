@@ -88,11 +88,22 @@ function subsampleFrames(frames, maxCount) {
   return picked;
 }
 
+function syncDraftRelations(text) {
+  draftState.relations = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 function renderDraftQuestions() {
   renderQuestionsEditor(draftState.questions, {
     tbody: questionsBody,
     includeValues: false,
-    onChange: () => {}
+    onChange: () => {},
+    sync: {
+      eventDefs: draftState.eventDefs,
+      onEventDefsChanged: () => renderDraftEvents()
+    }
   });
 }
 
@@ -100,7 +111,11 @@ function renderDraftEvents() {
   renderEventsEditor(draftState.eventDefs, {
     tbody: eventsBody,
     includeMinFrames: false,
-    onChange: () => {}
+    onChange: () => {},
+    sync: {
+      relationsInput,
+      onRelationsChanged: syncDraftRelations
+    }
   });
 }
 

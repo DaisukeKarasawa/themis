@@ -38,7 +38,35 @@ def _print_result(sop_name: str, result: JudgeResult) -> None:
     print(f"\n>>> 総合判定: {result.verdict} <<<\n")
 
 
-def _run_observer(sop, meta_or_paths, model_key, out_path):
+def _source_sidecar_path(out_path: str) -> str:
+    return out_path + ".source.json"
+
+
+def _build_source_fingerprint(*, sop_path: str | None, input_path: str, model_key: str) -> dict:
+    return {
+        "sop": os.path.abspath(sop_path) if sop_path else None,
+        "input": os.path.abspath(input_path),
+        "model": model_key,
+    }
+
+
+def _load_source_fingerprint(sidecar_path: str) -> dict | None:
+    if not os.path.exists(sidecar_path):
+        return None
+    try:
+        with open(sidecar_path) as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _write_source_fingerprint(sidecar_path: str, fingerprint: dict) -> None:
+    with open(sidecar_path, "w") as f:
+        json.dump(fingerprint, f, ensure_ascii=False, indent=2)
+
+
+def _run_observer(sop, meta_or_paths, model_key, out_path, *, sop_path=None, input_path=None):
     """meta_or_pathsは[{"idx","t","path"}] または [path,...](idxはenumerateで振る)。"""
     from observe import Observer
 
@@ -51,11 +79,35 @@ def _run_observer(sop, meta_or_paths, model_key, out_path):
     else:
         meta = meta_or_paths
 
-    if os.path.exists(out_path):
-        with open(out_path) as f:
-            results = json.load(f)
-    else:
+    if input_path is None:
+        if meta and isinstance(meta[0], dict) and meta[0].get("path"):
+            input_path = os.path.dirname(meta[0]["path"])
+        else:
+            input_path = out_path
+
+    fingerprint = _build_source_fingerprint(
+        sop_path=sop_path, input_path=input_path, model_key=model_key,
+    )
+    sidecar_path = _source_sidecar_path(out_path)
+    stored = _load_source_fingerprint(sidecar_path)
+
+    reusable = os.path.exists(out_path) and stored == fingerprint
+    results: list = []
+    if reusable:
+        try:
+            with open(out_path) as f:
+                loaded = json.load(f)
+            if isinstance(loaded, list):
+                results = loaded
+            else:
+                reusable = False
+        except (OSError, json.JSONDecodeError):
+            reusable = False
+    if not reusable:
         results = []
+        _write_source_fingerprint(sidecar_path, fingerprint)
+        with open(out_path, "w") as f:
+            json.dump(results, f, ensure_ascii=False, indent=2)
     done_idx = {r["idx"] for r in results}
 
     for m in meta:
@@ -87,7 +139,10 @@ def cmd_run(args):
     print(f"[run]   {len(meta)}フレーム -> {frames_dir}")
 
     print(f"[run] 2/3 VLMで観察中... (model={args.model})")
-    _run_observer(sop, meta, args.model, answer_log_path)
+    _run_observer(
+        sop, meta, args.model, answer_log_path,
+        sop_path=args.sop, input_path=args.video,
+    )
     print(f"[run]   観察ログ -> {answer_log_path}")
 
     print("[run] 3/3 判定中...")
@@ -102,7 +157,10 @@ def cmd_observe(args):
         sys.exit(1)
     sop = load_sop(args.sop)
     meta = [{"idx": i, "t": round(i / args.fps, 2), "path": p} for i, p in enumerate(frame_paths)]
-    _run_observer(sop, meta, args.model, args.out)
+    _run_observer(
+        sop, meta, args.model, args.out,
+        sop_path=args.sop, input_path=args.frames_dir,
+    )
     print(f"[observe] saved -> {args.out}")
 
 

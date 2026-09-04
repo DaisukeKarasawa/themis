@@ -7,6 +7,8 @@ VLM(mlx_vlm)を必要としない — examples/konro_inspection/sample_output/an
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from sop import load_sop, load_answer_log
 from judge import judge
@@ -106,3 +108,26 @@ def test_overlaps_gap_tolerance_uses_seconds():
     sop["defaults"]["gap_tolerance_s"] = 3.5
     result = judge(sop, frames)
     assert result.verdict == "PASS"
+
+
+def test_judge_rejects_missing_events():
+    sop = {
+        "sop": {"id": "t", "name": "t"},
+        "questions": [{"id": "q", "ask": "?", "values": ["yes", "no"]}],
+        "relations": [],
+    }
+    frames = [{"idx": 0, "t": 0.0, "answers": {"q": "yes"}}]
+    with pytest.raises(ValueError, match="events"):
+        judge(sop, frames)
+
+
+def test_judge_rejects_non_dict_events():
+    sop = {
+        "sop": {"id": "t", "name": "t"},
+        "questions": [{"id": "q", "ask": "?", "values": ["yes", "no"]}],
+        "events": [],
+        "relations": [],
+    }
+    frames = [{"idx": 0, "t": 0.0, "answers": {"q": "yes"}}]
+    with pytest.raises(ValueError, match="events"):
+        judge(sop, frames)

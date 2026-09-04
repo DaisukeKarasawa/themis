@@ -60,3 +60,64 @@ def test_extract_json_object_repairs_truncated():
     raw = '{"sop": {"id": "x", "name": "n"}, "questions": [{"id": "a", "ask": "q?"}'
     data = extract_json_object(raw)
     assert data["questions"][0]["id"] == "a"
+
+
+def test_normalize_relations_unary_not_string():
+    raw = {
+        "questions": [{"id": "gloves", "ask": "手袋をしているか"}],
+        "eventDefs": [{"name": "gloves_worn", "evidence": "gloves==yes"}],
+        "relations": ["not gloves_worn"],
+    }
+    draft = normalize_draft(raw)
+    assert "not gloves_worn" in draft["relations"]
+
+
+def test_normalize_relations_unary_not_dict():
+    raw = {
+        "questions": [{"id": "gloves", "ask": "手袋をしているか"}],
+        "eventDefs": [{"name": "gloves_worn", "evidence": "gloves==yes"}],
+        "relations": [{"op": "not", "name": "gloves_worn"}],
+    }
+    draft = normalize_draft(raw)
+    assert "not gloves_worn" in draft["relations"]
+
+
+def test_normalize_relations_binary_still_work():
+    raw = {
+        "questions": [
+            {"id": "pick_tool", "ask": "工具を持っているか"},
+            {"id": "desk_clear", "ask": "机が片付いているか"},
+        ],
+        "eventDefs": [
+            {"name": "pick_tool", "evidence": "pick_tool==yes"},
+            {"name": "step_desk_clear", "evidence": "desk_clear==yes"},
+        ],
+        "relations": ["pick_tool before step_desk_clear", "pick_tool overlaps step_desk_clear"],
+    }
+    draft = normalize_draft(raw)
+    assert "pick_tool before step_desk_clear" in draft["relations"]
+    assert "pick_tool overlaps step_desk_clear" in draft["relations"]
+
+
+def test_normalize_japanese_evidence_and_event_ids():
+    raw = {
+        "questions": [{"id": "手が動いている", "ask": "手が動いているか"}],
+        "eventDefs": [{"name": "手の動き", "evidence": "手が動いている==yes"}],
+        "relations": [],
+    }
+    draft = normalize_draft(raw)
+    qid = draft["questions"][0]["id"]
+    assert qid == "手が動いている"
+    assert any(e["evidence"] == f"{qid}==yes" for e in draft["eventDefs"])
+
+
+def test_normalize_draft_defaults_float_and_int():
+    raw = {
+        "questions": [{"id": "a", "ask": "test?"}],
+        "defaults": {"order_tolerance_s": 1.5, "min_frames": 2, "max_gap_frames": 3},
+    }
+    draft = normalize_draft(raw)
+    assert draft["defaults"]["order_tolerance_s"] == 1.5
+    assert draft["defaults"]["min_frames"] == 2
+    assert isinstance(draft["defaults"]["min_frames"], int)
+    assert draft["defaults"]["max_gap_frames"] == 3

@@ -10,7 +10,8 @@
 ## 動作環境
 
 - macOS（Apple Silicon）
-- Python >= 3.10
+- Python 3.10–3.13（`observe`/`run` — mlx-vlm の wheel 互換範囲）
+- `judge` のみなら Python 3.10+ と pyyaml で可
 - `observe`/`run`コマンドには [mlx-vlm](https://github.com/Blaizzy/mlx-vlm) が必要
 
 ## インストール
@@ -87,6 +88,15 @@ events:                              # Phase 2 — 何を検出するか
   point1:
     evidence: "pointing==yes"
     occurrence: 1                    # 時系列N番目を明示(宣言順に依存しない。後述)
+  point2:
+    evidence: "pointing==yes"
+    occurrence: 2
+  battery:
+    evidence: "battery==yes"
+    min_frames: 1
+  gloves_worn:
+    evidence: "gloves==yes"
+    min_frames: 1
 
 relations:                           # Phase 2 — イベント間の時間的関係
   - ignite before point1

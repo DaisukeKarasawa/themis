@@ -255,7 +255,11 @@ def judge(sop_def: dict[str, Any], frames: list[dict]) -> JudgeResult:
     gap_tolerance_s = defaults.get("gap_tolerance_s", 0.0)
     relations = sop_def.get("relations", [])
 
-    events = detect_events(sop_def["events"], frames, defaults)
+    event_defs = sop_def.get("events")
+    if not isinstance(event_defs, dict):
+        raise ValueError("SOP定義に events セクション(dict)が必要です")
+
+    events = detect_events(event_defs, frames, defaults)
     relation_checks = evaluate_relations(relations, events, tolerance_s=tolerance_s,
                                          gap_tolerance_s=gap_tolerance_s)
     violations = [r.message for r in relation_checks if not r.passed]

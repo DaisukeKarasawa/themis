@@ -26,6 +26,9 @@ def extract_frames(video_path: str, out_dir: str, fps: float = 1.0, width: int =
         cap.release()
         raise ValueError(f"動画のFPSが不正です: {video_fps!r} ({video_path})")
     n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if n_frames <= 0:
+        cap.release()
+        raise ValueError(f"動画のフレーム数が不正です: {n_frames} ({video_path})")
     duration = n_frames / video_fps if video_fps else 0.0
 
     meta = []

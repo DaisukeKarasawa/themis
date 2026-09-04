@@ -130,6 +130,20 @@ def _answers_from_confidence(confidence: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _merge_answers(
+    confidence: dict[str, Any],
+    raw: str,
+    questions: list[dict[str, Any]],
+) -> dict[str, str]:
+    answers = _answers_from_confidence(confidence)
+    raw_answers = _parse_answers_from_raw(raw, questions)
+    question_ids = {q["id"] for q in questions if q.get("id")}
+    for qid in question_ids:
+        if qid not in answers and qid in raw_answers:
+            answers[qid] = raw_answers[qid]
+    return answers
+
+
 def build_draft_prompt(work_context: str, frame_times: list[float]) -> str:
     times_text = ", ".join(f"{t:.1f}s" for t in frame_times) if frame_times else "不明"
     context = work_context.strip() or "作業動画"
@@ -271,9 +285,7 @@ class VlmAnalyzer:
 
         confidence = record.get("confidence", {})
         raw = record.get("raw", "")
-        answers = _answers_from_confidence(confidence)
-        if not answers:
-            answers = _parse_answers_from_raw(raw, questions)
+        answers = _merge_answers(confidence, raw, questions)
         probs = {
             qid: info["probs"]
             for qid, info in confidence.items()

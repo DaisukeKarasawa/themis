@@ -47,16 +47,12 @@ function clearCoverageDisplay() {
   ring.removeAttribute("aria-label");
 }
 
-function setVerdictBadgeDisplay(coverage, verdict) {
-  const rounded = Math.round(coverage * 100);
+function setVerdictBadgeDisplay(_coverage, verdict) {
   const badge = document.getElementById("verdictBadge");
   badge.hidden = false;
-  if (verdict === "PASS" && rounded >= 100) {
+  if (verdict === "PASS") {
     badge.textContent = "PASS";
     badge.className = "badge pass";
-  } else if (rounded >= 80 && rounded <= 99) {
-    badge.textContent = "WARN";
-    badge.className = "badge warn";
   } else {
     badge.textContent = "FAIL";
     badge.className = "badge fail";
@@ -135,9 +131,7 @@ export function renderRelationResults() {
     const passed = results.filter(r => r.passed).length;
     const total = results.length;
     summaryEl.className = "relations-summary " + (passed === total ? "all-pass" : "has-fail");
-    summaryEl.textContent = passed === total
-      ? `${total} / ${total} ルールをすべて満たしています`
-      : `${passed} / ${total} ルールを満たしています`;
+    summaryEl.textContent = `${passed} / ${total} ルールを満たしています`;
 
     results.forEach(r => {
       appendRelationRow(box, r.relation, r.passed, r.message);
@@ -304,7 +298,7 @@ function mountReplayView(data) {
   setDATA(data);
   setNotOnly(new Set(
     data.relations
-      .map(r => /^\s*not\s+(\w+)\s*$/.exec(r))
+      .map(r => /^\s*not\s+(\S+)\s*$/.exec(r))
       .filter(Boolean)
       .map(m => m[1])
   ));

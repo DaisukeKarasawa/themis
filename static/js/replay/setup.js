@@ -37,6 +37,30 @@ function onEditorChange() {
   renderAssetCards();
 }
 
+function renderSetupQuestions() {
+  renderQuestionsEditor(editorState.questions, {
+    tbody: questionsBody,
+    includeValues: true,
+    onChange: onEditorChange,
+    sync: {
+      eventDefs: editorState.eventDefs,
+      onEventDefsChanged: () => renderSetupEvents()
+    }
+  });
+}
+
+function renderSetupEvents() {
+  renderEventsEditor(editorState.eventDefs, {
+    tbody: eventsBody,
+    includeMinFrames: true,
+    onChange: onEditorChange,
+    sync: {
+      relationsInput,
+      onRelationsChanged: () => {}
+    }
+  });
+}
+
 export function showError(message) {
   errorBox.textContent = message;
   errorBox.classList.add("active");
@@ -107,16 +131,8 @@ export function applyConfigToEditor(config) {
   editorState.sopId = config.sop?.id || "custom_sop";
   editorState.questions = structuredClone(config.questions || []);
   editorState.eventDefs = structuredClone(config.eventDefs || []);
-  renderQuestionsEditor(editorState.questions, {
-    tbody: questionsBody,
-    includeValues: true,
-    onChange: onEditorChange
-  });
-  renderEventsEditor(editorState.eventDefs, {
-    tbody: eventsBody,
-    includeMinFrames: true,
-    onChange: onEditorChange
-  });
+  renderSetupQuestions();
+  renderSetupEvents();
   relationsInput.value = (config.relations || []).join("\n");
   applyDefaultsToEditor(config.defaults || {});
   sopTitleInput.value = config.sop?.name || "";
@@ -214,16 +230,8 @@ export function initSetup() {
   });
 
   renderAssetCards();
-  renderQuestionsEditor(editorState.questions, {
-    tbody: questionsBody,
-    includeValues: true,
-    onChange: onEditorChange
-  });
-  renderEventsEditor(editorState.eventDefs, {
-    tbody: eventsBody,
-    includeMinFrames: true,
-    onChange: onEditorChange
-  });
+  renderSetupQuestions();
+  renderSetupEvents();
   renderHistoryLists();
   relationsInput.value = "";
   applyDefaultsToEditor();
@@ -233,22 +241,14 @@ export function initSetup() {
   document.getElementById("addQuestionBtn").addEventListener("click", () => {
     editorState.sopId = "custom_sop";
     editorState.questions.push({ id: "item_" + (editorState.questions.length + 1), ask: "", values: ["yes", "no"] });
-    renderQuestionsEditor(editorState.questions, {
-      tbody: questionsBody,
-      includeValues: true,
-      onChange: onEditorChange
-    });
+    renderSetupQuestions();
     renderAssetCards();
   });
 
   document.getElementById("addEventBtn").addEventListener("click", () => {
     editorState.sopId = "custom_sop";
     editorState.eventDefs.push({ name: "event_" + (editorState.eventDefs.length + 1), evidence: "item_1==yes", occurrence: 1 });
-    renderEventsEditor(editorState.eventDefs, {
-      tbody: eventsBody,
-      includeMinFrames: true,
-      onChange: onEditorChange
-    });
+    renderSetupEvents();
     renderAssetCards();
   });
 

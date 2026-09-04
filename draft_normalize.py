@@ -13,10 +13,19 @@ DEFAULT_DRAFT_DEFAULTS = {
     "max_gap_frames": 2,
 }
 
-_RELATION_RE = re.compile(
-    r"^\s*([A-Za-z_][\w]*)\s+(before|overlaps|not)\s+([A-Za-z_][\w]*)\s*$"
+_ID = r"(?!\d)\w+"
+_RELATION_BINARY_RE = re.compile(
+    rf"^\s*({_ID})\s+(before|overlaps)\s+({_ID})\s*$",
+    flags=re.UNICODE,
 )
-_EVIDENCE_RE = re.compile(r"^([A-Za-z_][\w]*)\s*==\s*(yes|no)$")
+_RELATION_UNARY_NOT_RE = re.compile(
+    rf"^\s*not\s+({_ID})\s*$",
+    flags=re.UNICODE,
+)
+_EVIDENCE_RE = re.compile(
+    rf"^({_ID})\s*==\s*(yes|no)$",
+    flags=re.UNICODE,
+)
 
 
 def slugify_id(text: str, fallback: str = "item") -> str:
@@ -108,15 +117,36 @@ def _normalize_relations(raw_relations: Any, event_names: set[str]) -> list[str]
     relations: list[str] = []
     for item in _as_list(raw_relations):
         if isinstance(item, dict):
+            op = str(
+                item.get("op") or item.get("relation") or item.get("type") or ""
+            ).strip().lower()
+            if op == "not":
+                event = (
+                    item.get("name")
+                    or item.get("event")
+                    or item.get("right")
+                    or item.get("left")
+                    or item.get("target")
+                )
+                if event:
+                    event_str = str(event).strip()
+                    if event_str in event_names:
+                        relations.append(f"not {event_str}")
+                continue
             left = item.get("left") or item.get("a") or item.get("from")
-            op = item.get("op") or item.get("relation") or item.get("type")
             right = item.get("right") or item.get("b") or item.get("to")
             if left and op and right:
                 item = f"{left} {op} {right}"
             else:
                 continue
         line = str(item).strip()
-        match = _RELATION_RE.match(line)
+        not_match = _RELATION_UNARY_NOT_RE.match(line)
+        if not_match:
+            event = not_match.group(1)
+            if event in event_names:
+                relations.append(f"not {event}")
+            continue
+        match = _RELATION_BINARY_RE.match(line)
         if not match:
             continue
         left, op, right = match.group(1), match.group(2), match.group(3)
@@ -165,11 +195,15 @@ def normalize_draft(raw: dict[str, Any], work_context: str = "") -> dict[str, An
     raw_defaults = raw.get("defaults")
     if isinstance(raw_defaults, dict):
         for key in DEFAULT_DRAFT_DEFAULTS:
-            if key in raw_defaults:
-                try:
+            if key not in raw_defaults:
+                continue
+            try:
+                if key == "order_tolerance_s":
+                    defaults[key] = float(raw_defaults[key])
+                else:
                     defaults[key] = int(raw_defaults[key])
-                except (TypeError, ValueError):
-                    pass
+            except (TypeError, ValueError):
+                pass
 
     return {
         "sop": {"id": sop_id, "name": sop_name or "作業チェック草案"},

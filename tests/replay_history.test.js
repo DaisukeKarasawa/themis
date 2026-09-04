@@ -106,4 +106,36 @@ assert.strictEqual(historyEntry.result.frames.length, 1, "result should include 
 assert.ok(historyEntry.result.frames[0].groundings?.knob, "result should retain groundings in frames");
 assert.ok(!("frames" in historyEntry), "frames should live inside result, not at top level");
 
+const sopEditorJs = fs.readFileSync("static/js/shared/sop-editor.js", "utf8");
+const sopEditorSandbox = {};
+vm.createContext(sopEditorSandbox);
+vm.runInContext(`
+  ${sopEditorJs.replace(/^import .*$/gm, "").replace(/^export /gm, "")}
+`, sopEditorSandbox);
+
+const eventDefs = [{ name: "step_a", evidence: "項目A==yes and item_b==no", occurrence: 1 }];
+sopEditorSandbox.rewriteEventDefsEvidenceForQuestionId(eventDefs, "項目A", "項目A2");
+assert.strictEqual(eventDefs[0].evidence, "項目A2==yes and item_b==no", "evidence should rewrite unicode question ids");
+
+const relations = sopEditorSandbox.rewriteRelationsForEventName(
+  "fold_action before folded_state\nnot fold_action",
+  "fold_action",
+  "fold_step"
+);
+assert.strictEqual(
+  relations,
+  "fold_step before folded_state\nnot fold_step",
+  "relations should rewrite event name tokens only"
+);
+
+const viewJs = fs.readFileSync("static/js/replay/view.js", "utf8");
+assert.doesNotMatch(viewJs, /WARN/, "verdict badge should not show WARN");
+assert.match(viewJs, /verdict === "PASS"/, "verdict badge should honor PASS from judge");
+assert.doesNotMatch(viewJs, /ルールをすべて満たしています/, "relations summary should use unified template");
+
+const videoFramesJs = fs.readFileSync("static/js/shared/video-frames.js", "utf8");
+assert.match(videoFramesJs, /Math\.max\(0\.5/, "extractFrames should clamp intervalSec");
+assert.match(videoFramesJs, /waitForVideoEvent\(video, "loadedmetadata", signal\)/, "loadedmetadata wait should pass signal");
+assert.match(videoFramesJs, /waitForVideoEvent\(video, "seeked", signal\)/, "seeked wait should pass signal");
+
 console.log("replay history behavior ok");

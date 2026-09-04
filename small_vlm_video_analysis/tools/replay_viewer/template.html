@@ -276,7 +276,9 @@ DATA.violations.forEach(v => {
 const relUl = document.getElementById("relations");
 DATA.relations.forEach(r => {
   const li = document.createElement("li");
-  li.innerHTML = `<code>${r}</code>`;
+  const code = document.createElement("code");
+  code.textContent = r;
+  li.appendChild(code);
   relUl.appendChild(li);
 });
 
@@ -301,11 +303,22 @@ function renderQuestions(frame) {
     const prob = frame.probs[q.id] ? frame.probs[q.id][val] : null;
     const row = document.createElement("div");
     row.className = "qrow";
-    row.innerHTML = `
-      <span class="qask">${q.ask}</span>
-      <span class="prob">${prob != null ? Math.round(prob * 100) + "%" : ""}</span>
-      <span class="${pillClass(val)}">${val}</span>
-    `;
+
+    const askSpan = document.createElement("span");
+    askSpan.className = "qask";
+    askSpan.textContent = q.ask;
+
+    const probSpan = document.createElement("span");
+    probSpan.className = "prob";
+    probSpan.textContent = prob != null ? Math.round(prob * 100) + "%" : "";
+
+    const valSpan = document.createElement("span");
+    valSpan.className = pillClass(val);
+    valSpan.textContent = val;
+
+    row.appendChild(askSpan);
+    row.appendChild(probSpan);
+    row.appendChild(valSpan);
     box.appendChild(row);
   });
 }
@@ -335,15 +348,31 @@ function renderEvents() {
 
     const row = document.createElement("div");
     row.className = "erow" + (active ? " active" : "");
-    row.innerHTML = `
-      <div class="ehead">
-        <span class="ename">${name}</span>
-        <span class="estatus ${statusClass}">${statusText}</span>
-      </div>
-      <div class="evidence">${ev.evidence}</div>
-      <div class="timeline"></div>
-    `;
-    const tl = row.querySelector(".timeline");
+
+    const ehead = document.createElement("div");
+    ehead.className = "ehead";
+
+    const ename = document.createElement("span");
+    ename.className = "ename";
+    ename.textContent = name;
+
+    const estatus = document.createElement("span");
+    estatus.className = "estatus " + statusClass;
+    estatus.textContent = statusText;
+
+    ehead.appendChild(ename);
+    ehead.appendChild(estatus);
+
+    const evidence = document.createElement("div");
+    evidence.className = "evidence";
+    evidence.textContent = ev.evidence;
+
+    const tl = document.createElement("div");
+    tl.className = "timeline";
+
+    row.appendChild(ehead);
+    row.appendChild(evidence);
+    row.appendChild(tl);
     if (detected) {
       const span = document.createElement("div");
       span.className = "span";

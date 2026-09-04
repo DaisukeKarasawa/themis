@@ -1,5 +1,35 @@
 import { escapeHtml } from "./html.js";
 
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function rewriteEvidenceForQuestionId(evidence, oldId, newId) {
+  if (!oldId || oldId === newId) return evidence;
+  const pattern = new RegExp(`(^|\\s)${escapeRegExp(oldId)}==`, "g");
+  return String(evidence).replace(pattern, `$1${newId}==`);
+}
+
+export function rewriteEventDefsEvidenceForQuestionId(eventDefs, oldId, newId) {
+  if (!oldId || oldId === newId) return false;
+  let changed = false;
+  for (const ev of eventDefs) {
+    const next = rewriteEvidenceForQuestionId(ev.evidence, oldId, newId);
+    if (next !== ev.evidence) {
+      ev.evidence = next;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+export function rewriteRelationsForEventName(relationsText, oldName, newName) {
+  if (!oldName || oldName === newName) return relationsText;
+  return String(relationsText).split("\n").map((line) => (
+    line.replace(/[^\s]+/g, (token) => (token === oldName ? newName : token))
+  )).join("\n");
+}
+
 function createRemoveButton(onRemove) {
   const btn = document.createElement("button");
   btn.type = "button";
@@ -8,7 +38,7 @@ function createRemoveButton(onRemove) {
   return btn;
 }
 
-export function renderQuestionsEditor(questions, { tbody, includeValues = false, onChange }) {
+export function renderQuestionsEditor(questions, { tbody, includeValues = false, onChange, sync }) {
   tbody.innerHTML = "";
   questions.forEach((q, index) => {
     const tr = document.createElement("tr");
@@ -23,7 +53,13 @@ export function renderQuestionsEditor(questions, { tbody, includeValues = false,
       idInput.type = "text";
       idInput.value = q.id;
       idInput.addEventListener("change", () => {
-        q.id = idInput.value.trim();
+        const newId = idInput.value.trim();
+        const previousId = q.id;
+        q.id = newId;
+        if (sync?.eventDefs && previousId !== newId) {
+          rewriteEventDefsEvidenceForQuestionId(sync.eventDefs, previousId, newId);
+          sync.onEventDefsChanged?.();
+        }
         onChange?.();
       });
 
@@ -48,7 +84,7 @@ export function renderQuestionsEditor(questions, { tbody, includeValues = false,
       valuesTd.appendChild(valuesInput);
       actionsTd.appendChild(createRemoveButton(() => {
         questions.splice(index, 1);
-        renderQuestionsEditor(questions, { tbody, includeValues, onChange });
+        renderQuestionsEditor(questions, { tbody, includeValues, onChange, sync });
         onChange?.();
       }));
 
@@ -59,8 +95,14 @@ export function renderQuestionsEditor(questions, { tbody, includeValues = false,
       <td><input type="text" data-field="ask" value="${escapeHtml(q.ask)}"></td>
       <td class="table-actions"><button type="button" data-action="remove">削除</button></td>
     `;
-      tr.querySelector('[data-field="id"]').addEventListener("input", (e) => {
-        q.id = e.target.value;
+      tr.querySelector('[data-field="id"]').addEventListener("change", (e) => {
+        const newId = e.target.value.trim();
+        const previousId = q.id;
+        q.id = newId;
+        if (sync?.eventDefs && previousId !== newId) {
+          rewriteEventDefsEvidenceForQuestionId(sync.eventDefs, previousId, newId);
+          sync.onEventDefsChanged?.();
+        }
         onChange?.();
       });
       tr.querySelector('[data-field="ask"]').addEventListener("input", (e) => {
@@ -69,7 +111,7 @@ export function renderQuestionsEditor(questions, { tbody, includeValues = false,
       });
       tr.querySelector('[data-action="remove"]').addEventListener("click", () => {
         questions.splice(index, 1);
-        renderQuestionsEditor(questions, { tbody, includeValues, onChange });
+        renderQuestionsEditor(questions, { tbody, includeValues, onChange, sync });
         onChange?.();
       });
     }
@@ -77,7 +119,7 @@ export function renderQuestionsEditor(questions, { tbody, includeValues = false,
   });
 }
 
-export function renderEventsEditor(eventDefs, { tbody, includeMinFrames = false, onChange }) {
+export function renderEventsEditor(eventDefs, { tbody, includeMinFrames = false, onChange, sync }) {
   tbody.innerHTML = "";
   eventDefs.forEach((ev, index) => {
     const tr = document.createElement("tr");
@@ -92,7 +134,14 @@ export function renderEventsEditor(eventDefs, { tbody, includeMinFrames = false,
       nameInput.type = "text";
       nameInput.value = ev.name;
       nameInput.addEventListener("change", () => {
-        ev.name = nameInput.value.trim();
+        const newName = nameInput.value.trim();
+        const previousName = ev.name;
+        ev.name = newName;
+        if (sync?.relationsInput && previousName !== newName) {
+          const next = rewriteRelationsForEventName(sync.relationsInput.value, previousName, newName);
+          sync.relationsInput.value = next;
+          sync.onRelationsChanged?.(next);
+        }
         onChange?.();
       });
 
@@ -138,7 +187,7 @@ export function renderEventsEditor(eventDefs, { tbody, includeMinFrames = false,
       occTd.appendChild(occInput);
       actionsTd.appendChild(createRemoveButton(() => {
         eventDefs.splice(index, 1);
-        renderEventsEditor(eventDefs, { tbody, includeMinFrames, onChange });
+        renderEventsEditor(eventDefs, { tbody, includeMinFrames, onChange, sync });
         onChange?.();
       }));
 
@@ -150,7 +199,18 @@ export function renderEventsEditor(eventDefs, { tbody, includeMinFrames = false,
       <td><input type="number" data-field="occurrence" min="1" value="${ev.occurrence ?? 1}"></td>
       <td class="table-actions"><button type="button" data-action="remove">削除</button></td>
     `;
-      ["name", "evidence", "occurrence"].forEach((field) => {
+      tr.querySelector('[data-field="name"]').addEventListener("change", (e) => {
+        const newName = e.target.value.trim();
+        const previousName = eventDefs[index].name;
+        eventDefs[index].name = newName;
+        if (sync?.relationsInput && previousName !== newName) {
+          const next = rewriteRelationsForEventName(sync.relationsInput.value, previousName, newName);
+          sync.relationsInput.value = next;
+          sync.onRelationsChanged?.(next);
+        }
+        onChange?.();
+      });
+      ["evidence", "occurrence"].forEach((field) => {
         tr.querySelector(`[data-field="${field}"]`).addEventListener("input", (e) => {
           eventDefs[index][field] = field === "occurrence"
             ? Math.max(1, parseInt(e.target.value, 10) || 1)
@@ -160,7 +220,7 @@ export function renderEventsEditor(eventDefs, { tbody, includeMinFrames = false,
       });
       tr.querySelector('[data-action="remove"]').addEventListener("click", () => {
         eventDefs.splice(index, 1);
-        renderEventsEditor(eventDefs, { tbody, includeMinFrames, onChange });
+        renderEventsEditor(eventDefs, { tbody, includeMinFrames, onChange, sync });
         onChange?.();
       });
     }

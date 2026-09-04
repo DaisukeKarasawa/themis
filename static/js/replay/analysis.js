@@ -214,7 +214,7 @@ export async function runAnalysis(deps) {
   setAnalyzeButtonCancel();
 
   try {
-    const intervalSec = parseFloat(sampleIntervalInput.value) || 1;
+    const intervalSec = Math.max(0.5, parseFloat(sampleIntervalInput.value) || 1);
     setProgress(0, 1, "フレーム抽出中...");
     const frames = await extractFrames(file, intervalSec, {
       signal,

@@ -49,7 +49,7 @@ python3 -m venv .venv
 ./run.sh
 
 # small_vlm_video_analysis regression (no VLM required)
-cd small_vlm_video_analysis && pytest
+cd small_vlm_video_analysis && ../.venv/bin/python3 -m pytest
 python src/cli.py judge \
   --sop examples/konro_inspection/sop.yaml \
   --answer-log examples/konro_inspection/sample_output/answer_log.json
@@ -57,8 +57,8 @@ python src/cli.py judge \
 
 Minimum checks after changes:
 
-1. `pytest` passes in `small_vlm_video_analysis`
-2. `pytest tests/test_server.py tests/test_draft_normalize.py` passes at the repo root
+1. `../.venv/bin/python3 -m pytest` passes in `small_vlm_video_analysis`
+2. `.venv/bin/python3 -m pytest tests/test_server.py tests/test_draft_normalize.py tests/test_vlm_backend_answers.py` passes at the repo root
 3. PASS is maintained with the VLM-less `judge` command
 4. `./run.sh` starts the server and `replay.html` opens (verify on device when VLM changes)
 
