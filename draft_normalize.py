@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
 from typing import Any
@@ -187,10 +188,6 @@ def _strip_markdown_fences(text: str) -> str:
     return cleaned.strip()
 
 
-def _fix_trailing_commas(text: str) -> str:
-    return re.sub(r",(\s*[}\]])", r"\1", text)
-
-
 def _close_truncated_json(text: str) -> str:
     """Best-effort close for truncated objects/arrays (small VLM often cuts mid-JSON)."""
     in_string = False
@@ -234,19 +231,13 @@ def _candidate_json_slices(cleaned: str) -> list[str]:
 
 def extract_json_object(raw: str) -> dict[str, Any]:
     """Extract first JSON object from VLM text output."""
-    import json
-
     cleaned = raw.replace("<|im_end|>", "").replace("<|endoftext|>", "").strip()
     cleaned = _strip_markdown_fences(cleaned)
     preview = re.sub(r"\s+", " ", cleaned)[:240] or "(empty)"
 
     last_error: Exception | None = None
     for candidate in _candidate_json_slices(cleaned):
-        for variant in (
-            candidate,
-            _fix_trailing_commas(candidate),
-            _close_truncated_json(_fix_trailing_commas(candidate)),
-        ):
+        for variant in (candidate, _close_truncated_json(candidate)):
             try:
                 data = json.loads(variant)
             except json.JSONDecodeError as exc:
