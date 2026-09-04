@@ -107,7 +107,7 @@ python src/cli.py judge \
 - ルート `.gitignore` は Python 生成物、秘密情報（`.env`）、macOS/エディタ、`.cursor/hooks/state/`、実行出力（`out/`, `*.log`, `/data/`）、ML キャッシュ（`.cache/`, `models/`）を除外する。
 - `small_vlm_video_analysis/.git` がネストされている。初回コミット前に単一リポジトリ化（nested `.git` 削除）か submodule 化を決める。
 - VLM ソースのデフォルト解決順（`VLM_SRC` 未設定時）: プロジェクト内 `small_vlm_video_analysis/src` → 兄弟 `../small_vlm_video_analysis/src`。
-- リモート `origin` は `https://github.com/DaisukeKarasawa/video-analysis.git`、デフォルトブランチは `main`。ラッパー開発は `feat/vlm-replay-wrapper` など feature ブランチで進める。
+- リモート `origin` は `https://github.com/DaisukeKarasawa/themis.git`（リポジトリ名 `themis`）、デフォルトブランチは `main`。ラッパー開発は `feat/vlm-replay-wrapper` など feature ブランチで進める。
 - デモ用 SOP プリセットは `desk_task` と `desk_cleanup_check` のみ。`replay.html` の `SOP_ASSETS` に埋め込み。高度な設定は `eventDefs` と `relations`（`before` / `overlaps` / `not`）で表現する。
 - `#setupPanel` の並び: 0. デモの進め方（常時表示）→ 1. 動画と分析設定 → 2. チェック項目（内側に折りたたみの判定ルール: イベント・relations）→ 折りたたみ（デモシナリオ・実行履歴）。履歴 summary は `実行履歴` のみ（件数表記なし）。
 - `replay.html` のページ幅は `:root` の `--page-max-width`（例: `min(1680px, calc(100vw - 32px))`）で制御する。旧 `1180px` 固定上限は使わない。

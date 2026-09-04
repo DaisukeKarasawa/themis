@@ -1,4 +1,4 @@
-# video-analysis
+# themis
 
 作業動画の各フレームをローカル小型 VLM（Qwen3-VL / Apple Silicon / mlx-vlm）に問い合わせ、`replay.html` 上で SOP 準拠を確認するラッパー。
 

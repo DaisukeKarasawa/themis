@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>video-analysis リポジトリ構成</title>
+<title>themis リポジトリ構成</title>
 <style>
   :root {
     --bg: #f7f7f5;
@@ -129,7 +129,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>video-analysis リポジトリ構成</h1>
+  <h1>themis リポジトリ構成</h1>
   <p class="lead">作業動画が宣言的 SOP（手順書）通りかを、ローカル小型 VLM（Qwen3-VL / Apple Silicon）で判定するシステム。ルート層は Web UI + サーバ、コア層は CLI ライブラリ。</p>
 
   <div class="stats">
@@ -215,7 +215,7 @@
   <h2>ディレクトリ構成</h2>
   <div class="card tree">
     <details open>
-      <summary>video-analysis/ <span class="role">ルート</span></summary>
+      <summary>themis/ <span class="role">ルート</span></summary>
       <div class="item"><code>run.sh</code> <span class="role">起動</span> <span class="desc">.venv の python3 で server.py を実行</span></div>
       <div class="item"><code>server.py</code> <span class="role">HTTP サーバ</span> <span class="desc">replay.html 配信 + /api/vlm/analyze・/api/judge</span></div>
       <div class="item"><code>vlm_backend.py</code> <span class="role">VLM ブリッジ</span> <span class="desc">replay.html ↔ Observer</span></div>
@@ -284,7 +284,7 @@
     observe が questions を処理し、judge が events と relations を機械的に評価する。
   </div>
 
-  <footer>Source: video-analysis · 2026-07-08</footer>
+  <footer>Source: themis · 2026-07-08</footer>
 </div>
 </body>
 </html>
