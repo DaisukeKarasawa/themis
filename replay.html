@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>動画SOPチェックデモ</title>
+<link rel="stylesheet" href="/static/css/replay.css">
+
+</head>
+<body>
+  <header>
+    <h1 id="sopName">動画SOPチェックデモ</h1>
+    <nav class="page-nav" aria-label="ページ切り替え">
+      <a href="/replay.html" aria-current="page">チェック</a>
+      <a href="/draft.html">草案</a>
+    </nav>
+    <span id="coverageWrap" hidden>
+      <span id="coverage"></span>
+      <span id="coverageRing" role="img" aria-hidden="true"></span>
+    </span>
+    <span id="verdictBadge" class="badge pending" hidden></span>
+  </header>
+
+  <div id="mockModeWarning">
+    <div class="warn" id="mockModeText"></div>
+  </div>
+
+  <div id="fileProtocolWarning">
+    <div class="warn">
+      <strong>file:// では動作しません。</strong>
+      Finder から直接開いた HTML では API に接続できません。
+      ターミナルで <code>python3 server.py</code> を実行し、
+      下のリンクから開き直してください。
+      <div style="margin-top:10px">
+        候補:
+        <a href="http://127.0.0.1:8765/replay.html">8765</a> /
+        <a href="http://127.0.0.1:8766/replay.html">8766</a> /
+        <a href="http://127.0.0.1:8767/replay.html">8767</a> /
+        <a href="http://127.0.0.1:8768/replay.html">8768</a>
+        （<code>server.py</code> 起動時に表示されたポートを選んでください）
+      </div>
+    </div>
+  </div>
+
+  <section class="panel" id="setupPanel">
+    <div class="card demo-guide-card">
+      <h2>デモの進め方</h2>
+      <ol class="demo-guide-steps">
+        <li><strong>デモシナリオ</strong>から例を選ぶ（SOP名・チェック項目が自動で入ります）</li>
+        <li>作業動画を選び、必要なら <strong>SOP名</strong> と <strong>動画の前提説明</strong> を確認する</li>
+        <li><strong>分析開始</strong>を押し、完了後にフレームごとの回答と最終判定を確認する</li>
+      </ol>
+      <p class="demo-guide-foot">各ブロック右の吹き出しアイコンから、機能の概要と使い方をいつでも確認できます。</p>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">
+        <h2>1. 動画と分析設定</h2>
+        <button type="button" class="help-btn" data-help="video-setup" aria-label="動画と分析設定の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
+      <div class="row">
+        <label for="videoInput">動画ファイル</label>
+        <input type="file" id="videoInput" accept="video/*">
+      </div>
+      <div class="row technical-row">
+        <label for="apiUrl">VLM API URL</label>
+        <input type="text" id="apiUrl" class="grow" value="/api/vlm/analyze">
+      </div>
+      <div class="row">
+        <label for="sampleInterval">サンプリング間隔 (秒)</label>
+        <input type="number" id="sampleInterval" min="0.5" max="10" step="0.5" value="1" style="width:80px">
+        <label for="sopTitle">SOP名</label>
+        <input type="text" id="sopTitle" class="grow" placeholder="例: デスク作業チェック">
+      </div>
+      <div class="row">
+        <label for="domainHint">動画の前提説明</label>
+        <input type="text" id="domainHint" class="grow" placeholder="動画の撮影状況・写っているものの説明">
+      </div>
+      <div class="row">
+        <button type="button" id="analyzeBtn" class="primary" disabled>分析開始</button>
+      </div>
+      <div id="progressWrap">
+        <div id="progressBar"><div id="progressFill"></div></div>
+        <div id="progressText"></div>
+      </div>
+      <div id="errorBox"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">
+        <h2>2. チェック項目（質問）</h2>
+        <button type="button" class="help-btn" data-help="check-items" aria-label="チェック項目の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
+      <table id="questionsTable">
+        <thead>
+          <tr>
+            <th style="width:90px">ID</th>
+            <th>質問文</th>
+            <th style="width:140px">回答値</th>
+            <th style="width:70px"></th>
+          </tr>
+        </thead>
+        <tbody id="questionsBody"></tbody>
+      </table>
+      <div class="row" style="margin-top:10px">
+        <button type="button" id="addQuestionBtn">+ 項目を追加</button>
+      </div>
+      <details style="padding:0">
+        <summary class="summary-with-help" style="padding:16px 18px">
+          <span>判定ルール（イベント・relations）</span>
+          <button type="button" class="help-btn" data-help="judge-rules" aria-label="判定ルールの説明を表示">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </button>
+        </summary>
+        <div style="padding:0 18px 16px">
+          <h2 style="margin-top:0">イベント定義</h2>
+          <table id="eventsTable">
+            <thead>
+              <tr>
+                <th style="width:120px">名前</th>
+                <th>evidence (例: knob==yes)</th>
+                <th style="width:70px">min_frames</th>
+                <th style="width:80px">N回目</th>
+                <th style="width:70px"></th>
+              </tr>
+            </thead>
+            <tbody id="eventsBody"></tbody>
+          </table>
+          <div class="row" style="margin-top:10px">
+            <button type="button" id="addEventBtn">+ イベント追加</button>
+          </div>
+          <h2>defaults（判定の既定値）</h2>
+          <div class="row">
+            <label for="defaultOrderTolerance">order_tolerance_s</label>
+            <input type="number" id="defaultOrderTolerance" min="0" max="10" step="0.1" value="0" style="width:80px">
+            <label for="defaultMinFrames">min_frames</label>
+            <input type="number" id="defaultMinFrames" min="1" max="10" step="1" value="1" style="width:64px">
+            <label for="defaultMaxGapFrames">max_gap_frames</label>
+            <input type="number" id="defaultMaxGapFrames" min="0" max="10" step="1" value="2" style="width:64px">
+          </div>
+          <h2>relations（1行1件）</h2>
+          <textarea id="relationsInput"></textarea>
+          <p class="hint">例: ignite before point1 / flame_seen overlaps ignite / not gloves_worn</p>
+        </div>
+      </details>
+    </div>
+
+    <details class="card" style="padding:0">
+      <summary style="padding:16px 18px">デモシナリオ</summary>
+      <div style="padding:0 18px 16px">
+        <p class="hint">利用するSOPの設定セットを選ぶと、SOP名・チェック項目・動画の前提説明・イベント定義をまとめて反映します。</p>
+        <div id="assetCards" class="asset-grid"></div>
+      </div>
+    </details>
+
+    <details class="card" style="padding:0">
+      <summary id="historySummary" style="padding:16px 18px">実行履歴</summary>
+      <div style="padding:0 18px 16px">
+        <p class="hint">同じブラウザに直近5件まで保存します。「表示」でフレーム・回答・判定を含む再生画面を復元できます。5件を超えると古い結果から削除されます。フレーム画像を含むため、保存容量が足りない場合は保存に失敗することがあります。</p>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </details>
+  </section>
+
+  <main id="replayMain">
+    <p id="replaySopName" class="replay-sop-name"></p>
+    <div class="replay-columns">
+    <section class="left">
+      <div class="frame-viewport" id="frameViewport">
+        <img id="frameImg" alt="frame">
+        <div id="groundingLayer" class="grounding-layer" hidden></div>
+      </div>
+      <div class="grounding-controls">
+        <label class="grounding-toggle">
+          <input type="checkbox" id="groundingToggle" checked>
+          <span>根拠箇所を枠で表示</span>
+        </label>
+        <button type="button" class="help-btn" data-help="evidence-region" aria-label="根拠箇所の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
+      <div class="controls">
+        <button id="prevBtn" type="button">◀</button>
+        <button id="playBtn" type="button">▶ 再生</button>
+        <button id="nextBtn" type="button">▶</button>
+        <input type="range" id="scrubber" min="0" value="0" step="1">
+        <span id="timeLabel"></span>
+      </div>
+      <details open>
+        <summary>このフレームでVLMが実際に返したJSON(生出力)</summary>
+        <pre id="rawOutput"></pre>
+      </details>
+      <details>
+        <summary>実行履歴</summary>
+        <div id="replayHistoryList" class="history-list" style="padding:12px"></div>
+      </details>
+    </section>
+
+    <section class="right">
+      <div class="section-heading-row">
+        <h2>チェック項目の結果</h2>
+        <button type="button" class="help-btn" data-help="frame-answers" aria-label="チェック項目の結果の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
+      <div id="allNoWarning" class="hint" hidden></div>
+      <div id="questions"></div>
+
+      <div class="section-heading-row">
+        <h2>イベント検出</h2>
+        <button type="button" class="help-btn" data-help="event-detection" aria-label="イベント検出の説明を表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
+      <div id="events"></div>
+
+      <div id="relationsPanel">
+        <div class="section-heading-row">
+          <h2>relations の結果</h2>
+          <button type="button" class="help-btn" data-help="relations-check" aria-label="relations の結果の説明を表示">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </button>
+        </div>
+        <div id="relationsSummary" class="relations-summary none"></div>
+        <div id="relationResults"></div>
+      </div>
+    </section>
+    </div>
+  </main>
+
+  <div id="helpBackdrop" hidden></div>
+  <div id="helpPopover" hidden role="dialog" aria-modal="true" aria-labelledby="helpPopoverTitle">
+    <div class="help-popover-header">
+      <h3 id="helpPopoverTitle"></h3>
+      <button type="button" class="help-popover-close" id="helpPopoverClose" aria-label="説明を閉じる">×</button>
+    </div>
+    <div class="help-popover-body" id="helpPopoverBody"></div>
+  </div>
+
+<script type="module" src="/static/js/replay/main.js"></script>
+
+</body>
+</html>

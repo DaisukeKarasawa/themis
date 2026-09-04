@@ -1,0 +1,6 @@
+pyyaml>=6.0
+opencv-python>=4.8
+# mlx-vlm / mlx are Apple Silicon + Python 3.10–3.13 で検証。3.14 では wheels が無い場合あり。
+# ルート .venv は server.py / vlm_backend.py 用。本体は small_vlm_video_analysis/requirements.txt も参照。
+mlx-vlm>=0.6.0
+mlx>=0.31.2

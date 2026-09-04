@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>themis リポジトリ構成</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #fff;
+    --text: #1c1c1c;
+    --muted: #666;
+    --line: #ddd;
+    --accent: #2563eb;
+    --accent-bg: #eff6ff;
+    --purple: #7c3aed;
+    --green: #16a34a;
+    --orange: #ea580c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 32px 20px 64px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+  h2 { font-size: 16px; font-weight: 600; margin: 32px 0 12px; color: #333; }
+  h3 { font-size: 14px; font-weight: 600; margin: 20px 0 8px; color: #444; }
+  p.lead { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .stat .val { font-size: 24px; font-weight: 700; }
+  .stat .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  @media (max-width: 640px) { .grid2 { grid-template-columns: 1fr; } }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .card .tag {
+    float: right;
+    font-size: 11px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .card h3 { margin-top: 0; }
+  .card p { font-size: 13px; color: var(--muted); margin: 8px 0; }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .pill {
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    background: #f1f2f4;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .flow {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    margin-bottom: 8px;
+  }
+  .flow svg { display: block; min-width: 700px; }
+  .flow-note { font-size: 12px; color: var(--muted); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  th { background: #fafafa; font-weight: 600; font-size: 12px; color: #555; }
+  tr:last-child td { border-bottom: none; }
+  code { font-family: ui-monospace, monospace; font-size: 12px; }
+  .tree { font-size: 13px; }
+  .tree details { margin: 4px 0 4px 12px; }
+  .tree summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+  .tree .item {
+    display: flex; gap: 8px; align-items: baseline;
+    padding: 3px 0 3px 8px; flex-wrap: wrap;
+  }
+  .tree .role {
+    font-size: 11px; background: #f1f2f4;
+    padding: 1px 6px; border-radius: 3px; white-space: nowrap;
+  }
+  .tree .desc { color: var(--muted); font-size: 12px; }
+  .callout {
+    background: var(--accent-bg);
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-size: 13px;
+    margin-top: 24px;
+  }
+  .callout strong { color: var(--accent); }
+  footer { margin-top: 32px; font-size: 12px; color: #999; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>themis リポジトリ構成</h1>
+  <p class="lead">作業動画が宣言的 SOP（手順書）通りかを、ローカル小型 VLM（Qwen3-VL / Apple Silicon）で判定するシステム。ルート層は Web UI + サーバ、コア層は CLI ライブラリ。</p>
+
+  <div class="stats">
+    <div class="stat"><div class="val">2</div><div class="lbl">レイヤー (Web + Core)</div></div>
+    <div class="stat"><div class="val">5</div><div class="lbl">コアモジュール (src/*.py)</div></div>
+    <div class="stat"><div class="val">3</div><div class="lbl">実行モード (vlm/mock/proxy)</div></div>
+    <div class="stat"><div class="val">3</div><div class="lbl">判定フェーズ (Phase 0–2)</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <span class="tag">ブラウザ</span>
+      <h3>Web レイヤー (ルート)</h3>
+      <p>ブラウザからリアルタイムでフレームを VLM に送り、観察結果を再生・確認する。</p>
+      <div class="pills">
+        <span class="pill">replay.html</span>
+        <span class="pill">server.py</span>
+        <span class="pill">vlm_backend.py</span>
+      </div>
+      <p>起動: <code>./run.sh</code> → <code>http://127.0.0.1:8765/replay.html</code></p>
+    </div>
+    <div class="card">
+      <span class="tag">CLI</span>
+      <h3>コアライブラリ</h3>
+      <p>動画からフレーム抽出 → VLM 観察 → ルールベース判定を一括または個別実行。</p>
+      <div class="pills">
+        <span class="pill">extract</span>
+        <span class="pill">observe</span>
+        <span class="pill">judge</span>
+        <span class="pill">cli</span>
+      </div>
+      <p>一括: <code>python src/cli.py run --sop ... --video ...</code></p>
+    </div>
+  </div>
+
+  <h2>アーキテクチャ・データフロー</h2>
+  <div class="flow">
+    <svg width="780" height="120" aria-label="データフロー図">
+      <!-- CLI path -->
+      <line x1="90" y1="40" x2="170" y2="40" stroke="#999" stroke-width="1.5"/>
+      <line x1="250" y1="40" x2="330" y2="40" stroke="#999" stroke-width="1.5"/>
+      <line x1="410" y1="40" x2="490" y2="40" stroke="#999" stroke-width="1.5"/>
+      <line x1="570" y1="40" x2="650" y2="40" stroke="#999" stroke-width="1.5"/>
+      <!-- Web path -->
+      <line x1="90" y1="90" x2="170" y2="90" stroke="#2563eb" stroke-width="1.5"/>
+      <line x1="250" y1="90" x2="330" y2="90" stroke="#2563eb" stroke-width="1.5"/>
+      <line x1="330" y1="90" x2="370" y2="55" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 3"/>
+      <!-- nodes CLI -->
+      <rect x="10" y="20" width="80" height="40" rx="5" fill="#fff" stroke="#ccc"/><text x="50" y="38" text-anchor="middle" font-size="10" font-weight="600">sop.yaml</text><text x="50" y="52" text-anchor="middle" font-size="8" fill="#888">質問・イベント</text>
+      <rect x="170" y="20" width="80" height="40" rx="5" fill="#fff" stroke="#ccc"/><text x="210" y="38" text-anchor="middle" font-size="10" font-weight="600">extract.py</text><text x="210" y="52" text-anchor="middle" font-size="8" fill="#888">動画→フレーム</text>
+      <rect x="330" y="20" width="80" height="40" rx="5" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/><text x="370" y="38" text-anchor="middle" font-size="10" font-weight="600">observe.py</text><text x="370" y="52" text-anchor="middle" font-size="8" fill="#888">Phase 1 VLM</text>
+      <rect x="490" y="20" width="80" height="40" rx="5" fill="#fff" stroke="#ccc"/><text x="530" y="38" text-anchor="middle" font-size="10" font-weight="600">judge.py</text><text x="530" y="52" text-anchor="middle" font-size="8" fill="#888">Phase 2 判定</text>
+      <rect x="650" y="20" width="80" height="40" rx="5" fill="#fff" stroke="#ccc"/><text x="690" y="38" text-anchor="middle" font-size="10" font-weight="600">PASS/FAIL</text><text x="690" y="52" text-anchor="middle" font-size="8" fill="#888">最終判定</text>
+      <!-- nodes Web -->
+      <rect x="10" y="70" width="80" height="40" rx="5" fill="#fff" stroke="#2563eb"/><text x="50" y="88" text-anchor="middle" font-size="10" font-weight="600">replay.html</text><text x="50" y="102" text-anchor="middle" font-size="8" fill="#888">ブラウザ UI</text>
+      <rect x="170" y="70" width="80" height="40" rx="5" fill="#fff" stroke="#2563eb"/><text x="210" y="88" text-anchor="middle" font-size="10" font-weight="600">server.py</text><text x="210" y="102" text-anchor="middle" font-size="8" fill="#888">HTTP + API</text>
+      <rect x="330" y="70" width="80" height="40" rx="5" fill="#fff" stroke="#2563eb"/><text x="370" y="88" text-anchor="middle" font-size="10" font-weight="600">vlm_backend</text><text x="370" y="102" text-anchor="middle" font-size="8" fill="#888">VLM ブリッジ</text>
+    </svg>
+    <p class="flow-note">実線: CLI パイプライン (run) / 青線: Web パス / 破線: backend → observe 合流</p>
+  </div>
+
+  <div class="grid2">
+    <div>
+      <h3>SOP 判定フェーズ</h3>
+      <table>
+        <tr><th>フェーズ</th><th>モジュール</th><th>内容</th></tr>
+        <tr><td>Phase 0</td><td>正解確認</td><td>人間が動画を見て手順を確定</td></tr>
+        <tr><td>Phase 1</td><td>observe</td><td>VLM が各フレームに yes/no で回答</td></tr>
+        <tr><td>Phase 2</td><td>judge</td><td>ルールベースで PASS/FAIL 判定 (VLM 不使用)</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>VLM 実行モード</h3>
+      <table>
+        <tr><th>モード</th><th>説明</th></tr>
+        <tr><td><code>vlm</code></td><td>ローカル Qwen3-VL (Apple Silicon)</td></tr>
+        <tr><td><code>mock</code></td><td>全回答 no のスタブ</td></tr>
+        <tr><td><code>proxy</code></td><td>VLM_UPSTREAM_URL へ転送</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <h2>ディレクトリ構成</h2>
+  <div class="card tree">
+    <details open>
+      <summary>themis/ <span class="role">ルート</span></summary>
+      <div class="item"><code>run.sh</code> <span class="role">起動</span> <span class="desc">.venv の python3 で server.py を実行</span></div>
+      <div class="item"><code>server.py</code> <span class="role">HTTP サーバ</span> <span class="desc">replay.html 配信 + /api/vlm/analyze・/api/judge</span></div>
+      <div class="item"><code>vlm_backend.py</code> <span class="role">VLM ブリッジ</span> <span class="desc">replay.html ↔ Observer</span></div>
+      <div class="item"><code>replay.html</code> <span class="role">ブラウザ UI</span> <span class="desc">フレーム再生・リアルタイム VLM 観察</span></div>
+      <div class="item"><code>requirements.txt</code> <span class="role">依存</span> <span class="desc">mlx-vlm, opencv-python, pyyaml</span></div>
+      <div class="item"><code>.venv/</code> <span class="desc">Python 仮想環境 (mlx-vlm)</span></div>
+      <details open>
+        <summary>small_vlm_video_analysis/ <span class="role">コア</span></summary>
+        <details open>
+          <summary>src/</summary>
+          <div class="item"><code>cli.py</code> <span class="role">CLI</span> <span class="desc">run / observe / judge コマンド</span></div>
+          <div class="item"><code>extract.py</code> <span class="role">抽出</span> <span class="desc">動画 → JPEG (OpenCV)</span></div>
+          <div class="item"><code>observe.py</code> <span class="role">Phase 1</span> <span class="desc">VLM に質問 → yes/no + 信頼度</span></div>
+          <div class="item"><code>judge.py</code> <span class="role">Phase 2</span> <span class="desc">events/relations → PASS/FAIL</span></div>
+          <div class="item"><code>sop.py</code> <span class="role">ローダー</span> <span class="desc">YAML 読み込み・バリデーション</span></div>
+        </details>
+        <details>
+          <summary>examples/konro_inspection/</summary>
+          <div class="item"><code>sop.yaml</code> <span class="desc">コンロ始業前点検の手順定義</span></div>
+          <div class="item"><code>sop_wrong_order.yaml</code> <span class="desc">順序違反パターン</span></div>
+          <div class="item"><code>sample_output/answer_log.json</code> <span class="desc">観察ログ例</span></div>
+        </details>
+        <details>
+          <summary>tools/replay_viewer/</summary>
+          <div class="item"><code>build.py</code> <span class="desc">単一 HTML 生成 (フレーム埋め込み)</span></div>
+          <div class="item"><code>template.html</code> <span class="desc">ビューアテンプレート</span></div>
+        </details>
+        <details>
+          <summary>tests/</summary>
+          <div class="item"><code>test_judge.py</code> <span class="desc">判定ロジックのユニットテスト</span></div>
+        </details>
+      </details>
+    </details>
+  </div>
+
+  <div class="grid2">
+    <div>
+      <h3>HTTP API</h3>
+      <table>
+        <tr><th>エンドポイント</th><th>役割</th><th>説明</th></tr>
+        <tr><td><code>GET /replay.html</code></td><td>静的 UI</td><td>SOP 点検ビューア</td></tr>
+        <tr><td><code>GET /api/status</code></td><td>状態確認</td><td>VLM モード・ready 状態</td></tr>
+        <tr><td><code>POST /api/warmup</code></td><td>事前ロード</td><td>Qwen3-VL をバックグラウンド読込</td></tr>
+        <tr><td><code>POST /api/vlm/analyze</code></td><td>フレーム分析</td><td>image + questions → answers</td></tr>
+        <tr><td><code>POST /api/judge</code></td><td>SOP 判定</td><td>sop_def + frames → verdict/events</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>環境変数</h3>
+      <table>
+        <tr><th>変数</th><th>デフォルト</th><th>説明</th></tr>
+        <tr><td><code>PORT</code></td><td>8765</td><td>HTTP サーバポート</td></tr>
+        <tr><td><code>VLM_MODEL</code></td><td>4b</td><td>2b | 4b (Qwen3-VL サイズ)</td></tr>
+        <tr><td><code>VLM_USE_MOCK</code></td><td>(未設定)</td><td>1 で全回答 no のモック</td></tr>
+        <tr><td><code>VLM_UPSTREAM_URL</code></td><td>(未設定)</td><td>外部 VLM プロキシ先 URL</td></tr>
+        <tr><td><code>VLM_SRC</code></td><td>(自動)</td><td>small_vlm_video_analysis/src パス</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>SOP YAML 構造:</strong> 1ファイルに 3 セクション —
+    <strong>questions</strong>（VLM への質問）→
+    <strong>events</strong>（検出条件）→
+    <strong>relations</strong>（時間的関係: before / overlaps / not）。
+    observe が questions を処理し、judge が events と relations を機械的に評価する。
+  </div>
+
+  <footer>Source: themis · 2026-07-08</footer>
+</div>
+</body>
+</html>

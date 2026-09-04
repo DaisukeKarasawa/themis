@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>作業項目草案デモ</title>
+<link rel="stylesheet" href="/static/css/draft.css">
+
+</head>
+<body>
+  <header>
+    <h1>作業項目草案デモ</h1>
+    <nav class="page-nav" aria-label="ページ切り替え">
+      <a href="/replay.html">チェック</a>
+      <a href="/draft.html" aria-current="page">草案</a>
+    </nav>
+  </header>
+
+  <div id="mockModeWarning" hidden>
+    <div class="panel"><div class="warn-box" id="mockModeText"></div></div>
+  </div>
+
+  <div id="fileProtocolWarning" hidden>
+    <div class="panel">
+      <div class="warn-box">
+        <strong>file:// では動作しません。</strong>
+        ターミナルで <code>python3 server.py</code> を実行し、
+        <a href="http://127.0.0.1:8765/draft.html">http://127.0.0.1:8765/draft.html</a>
+        から開き直してください。
+      </div>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="card demo-guide-card">
+      <h2>デモの進め方</h2>
+      <ol class="demo-guide-steps">
+        <li>作業動画を選び、必要なら作業の説明を書く</li>
+        <li><strong>作業項目の草案を生成</strong>を押す</li>
+        <li>出てきたチェック項目を直し、<strong>チェック画面で開く</strong>で検証へ進む</li>
+      </ol>
+    </div>
+
+    <div id="errorBox" class="error-box" hidden></div>
+
+    <div class="card">
+      <div class="card-heading">
+        <h2>1. 動画と作業の説明</h2>
+        <button type="button" class="help-btn" data-help="video-setup" aria-label="動画設定の説明">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
+      <div class="row">
+        <label for="videoInput">動画ファイル</label>
+        <input type="file" id="videoInput" accept="video/*" class="grow">
+      </div>
+      <div class="row">
+        <label for="sampleInterval">サンプリング間隔（秒）</label>
+        <input type="number" id="sampleInterval" value="1" min="0.5" max="10" step="0.5">
+        <span class="hint">最大 8 フレームを VLM に送ります</span>
+      </div>
+      <div class="row" style="flex-direction:column;align-items:stretch;">
+        <label for="workContext">作業の説明（任意）</label>
+        <textarea id="workContext" placeholder="例: デスク上でペットボトルとティッシュを片付ける作業"></textarea>
+      </div>
+      <div class="row">
+        <button type="button" class="primary" id="generateBtn">作業項目の草案を生成</button>
+        <button type="button" id="cancelBtn" hidden>キャンセル</button>
+      </div>
+      <div id="progressWrap">
+        <div id="progressBar"><div id="progressFill"></div></div>
+        <div id="progressText"></div>
+      </div>
+      <p class="status" id="statusText"></p>
+    </div>
+
+    <div class="card" id="resultPanel" hidden>
+      <div class="card-heading">
+        <h2>2. 草案の編集</h2>
+        <button type="button" class="help-btn" data-help="draft-edit" aria-label="草案編集の説明">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+        </button>
+      </div>
+      <div class="row">
+        <label for="sopTitle">SOP名</label>
+        <input type="text" id="sopTitle" class="grow">
+      </div>
+      <div class="row" style="flex-direction:column;align-items:stretch;">
+        <label for="domainHint">動画の前提説明</label>
+        <textarea id="domainHint"></textarea>
+      </div>
+
+      <h3 style="font-size:14px;margin:16px 0 8px;color:#444;">チェック項目</h3>
+      <p class="hint">各項目は動画の1フレームで yes/no 判断できる質問にしてください。手の動き・物体の状態（入っている／開いている等）を優先し、「〜が置かれているか」だけの存在確認は避けてください。</p>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>質問</th><th></th></tr>
+        </thead>
+        <tbody id="questionsBody"></tbody>
+      </table>
+      <button type="button" id="addQuestionBtn">項目を追加</button>
+
+      <details>
+        <summary>判定ルール: イベント<span class="proposal-tag">提案（要確認）</span></summary>
+        <p class="hint">イベントは「ある質問が yes になった区間」を検出するための設定です。空でもチェック画面で自動生成できます。</p>
+        <table>
+          <thead>
+            <tr><th>名前</th><th>根拠</th><th>出現</th><th></th></tr>
+          </thead>
+          <tbody id="eventsBody"></tbody>
+        </table>
+        <button type="button" id="addEventBtn">イベントを追加</button>
+      </details>
+
+      <details>
+        <summary>判定ルール: relations<span class="proposal-tag">提案（要確認）</span></summary>
+        <p class="hint">1行に1ルール。例: <code>step_a before step_b</code></p>
+        <textarea id="relationsInput" rows="4"></textarea>
+      </details>
+
+      <div class="row" style="margin-top:16px;">
+        <button type="button" class="primary" id="openCheckBtn">チェック画面で開く</button>
+        <button type="button" id="copyJsonBtn">JSON をコピー</button>
+        <button type="button" id="downloadJsonBtn">JSON ダウンロード</button>
+      </div>
+    </div>
+  </section>
+
+<script type="module" src="/static/js/draft/main.js"></script>
+
+</body>
+</html>
