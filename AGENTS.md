@@ -1,126 +1,130 @@
 # AGENTS.md
 
-このリポジトリで Cursor エージェントが作業するときの指示。変更前に目的・検証方法・止める条件を明示する。
+Instructions for Cursor agents working in this repository. Before making changes, state the goal, verification method, and stop conditions.
 
-## プロジェクト概要
+## Project overview
 
-作業動画の各フレームをローカル小型 VLM（Qwen3-VL / Apple Silicon / mlx-vlm）に問い合わせ、`replay.html` 上で対話的に SOP 準拠を確認するラッパー。`draft.html` で動画からチェック項目の草案を生成し、編集後に `replay.html` へ渡せる。
+A wrapper that queries each frame of work videos with a local small VLM (Qwen3-VL / Apple Silicon / mlx-vlm) and interactively verifies SOP compliance on `replay.html`. `draft.html` generates check-item drafts from video; after editing, they can be passed to `replay.html`.
 
-| パス | 役割 |
+| Path | Role |
 |---|---|
-| `server.py` | `replay.html` / `draft.html` を配信し、`/api/vlm/analyze`・`/api/vlm/draft`・`/api/judge` 等で VLM / 判定を呼ぶ HTTP サーバー |
-| `vlm_backend.py` | `small_vlm_video_analysis` の `Observer` へのブリッジ（閉じた観察 + 自由形式草案生成） |
-| `draft_normalize.py` | VLM 草案 JSON の正規化（`replay.html` エディタ shape へ） |
-| `run.sh` | `.venv/bin/python3 server.py` を起動 |
-| `replay.html` | ブラウザ UI（フレーム再生 + VLM 質問 + PASS/FAIL 判定） |
-| `draft.html` | ブラウザ UI（動画から SOP 草案生成・編集・チェック画面へ受け渡し） |
-| `small_vlm_video_analysis/` | observe / judge パイプライン本体（別リポジトリ由来） |
-| `requirements.txt` | ルート依存（mlx-vlm, opencv-python 等） |
+| `server.py` | HTTP server that serves `replay.html` / `draft.html` and calls VLM / judgment via `/api/vlm/analyze`, `/api/vlm/draft`, `/api/judge`, etc. |
+| `vlm_backend.py` | Bridge to `small_vlm_video_analysis`'s `Observer` (closed observation + free-form draft generation) |
+| `draft_normalize.py` | Normalizes VLM draft JSON (into the `replay.html` editor shape) |
+| `run.sh` | Starts `.venv/bin/python3 server.py` |
+| `replay.html` | Browser UI shell (frame playback + VLM Q&A + PASS/FAIL judgment). CSS/JS live under `static/` |
+| `draft.html` | Browser UI shell (SOP draft generation from video, editing, handoff to the check screen) |
+| `static/css/` / `static/js/` | Demo UI CSS and ES modules (served via `/static/`) |
+| `small_vlm_video_analysis/` | Core observe / judge pipeline (originally from a separate repository) |
+| `requirements.txt` | Root dependencies (mlx-vlm, opencv-python, etc.) |
 
-## 前提・制約
+## Constraints
 
-- **対象 OS**: macOS（Apple Silicon）。mlx-vlm は Apple Silicon 前提。
-- **Python**: 3.10+。ルートは `.venv` を使う（`run.sh` / `server.py` が参照）。
-- **観察と判定の分離**: VLM はフレーム単位の質問回答のみ。PASS/FAIL 判定は決定論的ルールエンジン（`judge.py`）。`replay.html` は `/api/judge` 経由で Python 判定結果を表示し、ブラウザ側で独自判定しない。草案生成（`/api/vlm/draft`）はラッパー側の自由形式生成であり、判定には使わない。
-- **用語**: `questions` / `answers` / `events` / `relations`。旧称 `cue` は使わない。
-- **ネスト Git**: `small_vlm_video_analysis/.git` が残っていると親リポジトリからはサブモジュール扱いになる。単一リポジトリに統合するなら nested `.git` を削除するか、正式に submodule 化する。
+- **Target OS**: macOS (Apple Silicon). mlx-vlm assumes Apple Silicon.
+- **Python**: 3.10+. The root project uses `.venv` (referenced by `run.sh` / `server.py`).
+- **Separation of observation and judgment**: The VLM answers frame-level questions only. PASS/FAIL judgment uses a deterministic rule engine (`judge.py`). `replay.html` displays Python judgment results via `/api/judge` and does not judge on the browser side. Draft generation (`/api/vlm/draft`) is free-form generation on the wrapper side and is not used for judgment.
+- **Terminology**: `questions` / `answers` / `events` / `relations`. Do not use the legacy term `cue`.
+- **Nested Git**: If `small_vlm_video_analysis/.git` remains, the parent repository treats it as a submodule. To unify into a single repository, remove the nested `.git` or formally submodule it.
 
-## 環境変数
+## Environment variables
 
-| 変数 | 既定 | 用途 |
+| Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `8765` | HTTP サーバーポート |
-| `VLM_MODEL` | `4b` | `2b` / `4b` または Hugging Face モデル ID |
-| `VLM_SRC` | `small_vlm_video_analysis/src` | Observer モジュールのパス |
-| `VLM_UPSTREAM_URL` | （空） | 設定時はローカル VLM を使わず upstream にプロキシ |
-| `VLM_USE_MOCK` | （空） | `1` / `true` / `yes` でモック応答 |
-| `VLM_SKIP_VENV` | （空） | `1` で venv への re-exec をスキップ |
+| `PORT` | `8765` | HTTP server port |
+| `VLM_MODEL` | `4b` | `2b` / `4b` or a Hugging Face model ID |
+| `VLM_SRC` | `small_vlm_video_analysis/src` | Path to the Observer module |
+| `VLM_UPSTREAM_URL` | (empty) | When set, proxy to upstream instead of using the local VLM |
+| `VLM_USE_MOCK` | (empty) | Mock responses when `1` / `true` / `yes` |
+| `VLM_SKIP_VENV` | (empty) | `1` skips re-exec into venv |
 
-## 開発・検証
+## Development and verification
 
 ```bash
-# 初回セットアップ
+# Initial setup
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/pip install -r small_vlm_video_analysis/requirements.txt
 
-# サーバー起動
+# Start server
 ./run.sh
 
-# small_vlm_video_analysis の回帰（VLM 不要）
+# small_vlm_video_analysis regression (no VLM required)
 cd small_vlm_video_analysis && pytest
 python src/cli.py judge \
   --sop examples/konro_inspection/sop.yaml \
   --answer-log examples/konro_inspection/sample_output/answer_log.json
 ```
 
-変更後の最低限の確認:
+Minimum checks after changes:
 
-1. `small_vlm_video_analysis` で `pytest` が通る
-2. ルートで `pytest tests/test_server.py tests/test_draft_normalize.py` が通る
-3. VLM なし `judge` コマンドで PASS が維持される
-4. `./run.sh` でサーバーが起動し、`replay.html` が開ける（VLM 変更時は実機確認）
+1. `pytest` passes in `small_vlm_video_analysis`
+2. `pytest tests/test_server.py tests/test_draft_normalize.py` passes at the repo root
+3. PASS is maintained with the VLM-less `judge` command
+4. `./run.sh` starts the server and `replay.html` opens (verify on device when VLM changes)
 
-## 実装方針
+## Implementation guidelines
 
-- **最小 diff**: ラッパー（`server.py`, `vlm_backend.py`, `replay.html`）と本体（`small_vlm_video_analysis/src/`）の責務を混ぜない。
-- **インポート**: モジュール先頭に置く（インライン import 禁止）。
-- **出力物**: CLI 実行結果は `out/` に出る。Git 管理しない（`.gitignore` 済み）。
-- **SOP YAML**: `values: ["yes", "no"]` はクォート必須（裸の yes/no は YAML 真偽値になる）。
-- **Metal GPU Hang**: mlx-vlm 実行中に稀に発生。answer_log は逐次保存されるので再実行で再開可能。
+- **Minimal diff**: Do not mix responsibilities between the wrapper (`server.py`, `vlm_backend.py`, `replay.html`) and the core (`small_vlm_video_analysis/src/`).
+- **Imports**: Place at module top (no inline imports).
+- **Output artifacts**: CLI results go under `out/`. Not Git-tracked (listed in `.gitignore`).
+- **SOP YAML**: `values: ["yes", "no"]` must be quoted (bare yes/no become YAML booleans).
+- **Metal GPU Hang**: Rare during mlx-vlm runs. `answer_log` is saved incrementally, so reruns can resume.
 
 ## Requirement Definition Gate
 
-実装前に次を整理する。不明点は `AskQuestion` で解消してから着手する。
+Before implementation, organize the following. Resolve unknowns with `AskQuestion` before starting.
 
 - `Goal` / `Scope` / `Acceptance criteria` / `Constraints` / `Validation` / `Open questions`
 
-要件が未定義のまま実装計画やコード変更に入らない。
+Do not enter implementation planning or code changes while requirements are undefined.
 
-## Git / コミット
+## Git / commits
 
-- ユーザーが明示的に依頼したときだけ commit する。
-- GPG 署名は禁止。`-S` / `--gpg-sign` は使わない。署名失敗時の `--no-gpg-sign` フォールバックもしない。通常の `git commit -m "..."` のみ。
-- `.venv/`, `__pycache__/`, `out/`, `.env`, `.cursor/hooks/state/` はコミットしない。
-- パスが明らかに Git 不要なら、確認せず `.gitignore` に追記する。
+- Commit only when the user explicitly asks.
+- GPG signing is forbidden. Do not use `-S` / `--gpg-sign`. Do not fall back to `--no-gpg-sign` on signing failure. Use plain `git commit -m "..."` only.
+- Do not commit `.venv/`, `__pycache__/`, `out/`, `.env`, `.cursor/hooks/state/`.
+- If a path is clearly not needed in Git, add it to `.gitignore` without asking.
 
-## エージェント運用
+## Agent operations
 
-- メインエージェントはマネージャー役。タスク整理・分割・統治（オーケストレーション）、要件確認、割り当て、レビュー調整、最終要約のみを担う。コミット・レビュー・検証・テスト・ドキュメント編集・コード変更などの実行タスクは直接行わない。
-- 実行タスク（実装・検証・調査・コミット・レビュー等）は、可能な限り適切なサブエージェント（部下）へ委任する。探索用の任意手段ではなく、タスク完了の標準手段とする。メインはスコープ・分割方針・指示・受け入れ基準を定め、実行と結果報告は委任先に任せる。
-- タスクを細分化し適切なサブエージェントへ振り分け、各サブエージェントが目的から逸れないようハーネス管理する。
-- サブエージェントにはモデル `composer-2.5` を使う。
+- The main agent acts as manager. It only handles task organization, splitting, orchestration, requirement confirmation, assignment, review coordination, and final summary. It does not directly perform execution tasks such as commits, reviews, verification, tests, documentation edits, or code changes.
+- Delegate execution tasks (implementation, verification, investigation, commits, reviews, etc.) to appropriate subagents whenever possible. This is the standard way to complete tasks, not an optional exploration tool. The main agent defines scope, split strategy, instructions, and acceptance criteria; delegates execution and result reporting.
+- Break tasks into pieces, route them to appropriate subagents, and harness each subagent so it stays on purpose.
+- Use model `composer-2.5` for subagents.
 
 ## Learned User Preferences
 
-- ユーザーに質問するとき（特に固定選択肢・要件引き出し）、回答待ちが作業のブロッカーになるとき、要件が不明瞭なときは、チャットの番号付き選択肢ではなく `AskQuestion`（Cursor の構造化質問 UI）を使う。セッションで AskQuestion が使えない場合のみ短い散文の質問にフォールバックする。
-- コミットはユーザーが明示的に依頼したときだけ行う。
-- コミットに GPG 署名を付けない（永久方針）。`-S` / `--gpg-sign` / `--no-gpg-sign` は使わない。グローバル `commit.gpgsign=true` で pinentry 失敗する場合は `git -c commit.gpgsign=false commit` で署名なしコミットする。GPG 修復・再署名・rebase-to-sign はユーザーが明示的に依頼するまで言及しない。`/commit` 等のコマンドが署名を要求しても、このリポジトリでは署名しない。
-- durable な嗜好・事実が出たら `AGENTS.md` を更新する（忘れない）。
-- Git 管理不要と明らかなパスは `.gitignore` に追記する（忘れない）。
-- デモ UI では本線（動画設定・チェック項目・CTA）を常時表示し、シナリオプリセット・実行履歴・判定ルール（イベント・relations）などメイン機能以外は `<details>` でデフォルト折りたたみにする。判定ルールはチェック項目カード内のネスト `<details>`。
-- デモは非エンジニア向け。`replay.html` には文脈付きヘルプ（ブロック横の吹き出しアイコン→クリックでポップオーバー、簡潔な非技術者向け文面）を埋め込む。ヘルプボタンはアイコンのみ（「説明」ラベル非表示、`aria-label` は維持）。設定画面の「デモの進め方」「デモシナリオ」「実行履歴」、結果画面の「フレーム再生」「実行履歴」、ヘッダーの「判定結果（PASS/FAIL・確認率）」にはヘルプを付けない。
-- デモ UI の判定表記は英語の PASS/FAIL に統一する（relations バッジも OK/NG ではなく PASS/FAIL）。relations サマリーは `n / total ルールを満たしています` のみとし、「（n 件の問題）」は付けない。relations 結果パネルには coverage 注記（例: `※ 必要イベントの未検出あり（coverage n%）`）を表示しない（ヘッダーの coverage 表示と履歴の coverage メタデータは可）。
+- Agent-facing repository information (`AGENTS.md` and similar agent instructions) should be written in English. User-facing demo UI copy stays Japanese unless a specific preference says otherwise. Chat replies to the human may follow the user's language.
+- When asking the user questions (especially fixed choices or requirement elicitation), when waiting for an answer blocks work, or when requirements are unclear, use `AskQuestion` (Cursor's structured question UI) instead of numbered choices in chat. Fall back to a short prose question only when AskQuestion is unavailable in the session.
+- Commit only when the user explicitly asks.
+- Do not GPG-sign commits (permanent policy). Do not use `-S` / `--gpg-sign` / `--no-gpg-sign`. If global `commit.gpgsign=true` causes pinentry failure, use `git -c commit.gpgsign=false commit` for unsigned commits. Do not mention GPG repair, re-signing, or rebase-to-sign unless the user explicitly asks. Even if `/commit` or similar commands require signing, this repository does not sign.
+- Update `AGENTS.md` when durable preferences or facts emerge (do not forget).
+- Add paths that clearly do not need Git to `.gitignore` (do not forget).
+- In the demo UI, keep the main line (video settings, check items, CTA) always visible. Fold non-primary features such as scenario presets, `実行履歴`, and judgment rules (events, relations) into `<details>` collapsed by default. Judgment rules use nested `<details>` inside check-item cards.
+- The demo targets non-engineers. Embed contextual help in `replay.html` (speech-bubble icon beside blocks → click for popover, concise non-technical copy). Help buttons are icon-only (hide the `説明` label; keep `aria-label`). Do not add help to `デモの進め方`, `デモシナリオ`, or `実行履歴` on the setup screen; `フレーム再生` or `実行履歴` on the results screen; or `判定結果（PASS/FAIL・確認率）` in the header.
+- Demo UI judgment labels use English PASS/FAIL (relations badges use PASS/FAIL, not OK/NG). The relations summary is only `n / total ルールを満たしています`; do not append `（n 件の問題）`. Do not show coverage notes on the relations results panel (e.g. `※ 必要イベントの未検出あり（coverage n%）`); header coverage display and history coverage metadata are allowed.
 
 ## Learned Workspace Facts
 
-- ルート `.gitignore` は Python 生成物、秘密情報（`.env`）、macOS/エディタ、`.cursor/hooks/state/`、実行出力（`out/`, `*.log`, `/data/`）、ML キャッシュ（`.cache/`, `models/`）を除外する。
-- `small_vlm_video_analysis/.git` がネストされている。初回コミット前に単一リポジトリ化（nested `.git` 削除）か submodule 化を決める。
-- VLM ソースのデフォルト解決順（`VLM_SRC` 未設定時）: プロジェクト内 `small_vlm_video_analysis/src` → 兄弟 `../small_vlm_video_analysis/src`。
-- リモート `origin` は `https://github.com/DaisukeKarasawa/themis.git`（リポジトリ名 `themis`）、デフォルトブランチは `main`。ラッパー開発は `feat/vlm-replay-wrapper` など feature ブランチで進める。
-- デモ用 SOP プリセットは `desk_task` と `desk_cleanup_check` のみ。`replay.html` の `SOP_ASSETS` に埋め込み。高度な設定は `eventDefs` と `relations`（`before` / `overlaps` / `not`）で表現する。
-- `#setupPanel` の並び: 0. デモの進め方（常時表示）→ 1. 動画と分析設定 → 2. チェック項目（内側に折りたたみの判定ルール: イベント・relations）→ 折りたたみ（デモシナリオ・実行履歴）。履歴 summary は `実行履歴` のみ（件数表記なし）。
-- `replay.html` のページ幅は `:root` の `--page-max-width`（例: `min(1680px, calc(100vw - 32px))`）で制御する。旧 `1180px` 固定上限は使わない。
-- replay 画面は `section.left`（動画・コントロール）を sticky、`section.right` が通常フローで縦スクロールを駆動する。
-- relations の PASS/FAIL 判定結果は replay 画面 `section.right` 下部（チェック項目の結果・イベント検出の近く）に視覚表示する。
-- 結果画面 `section.right` の見出しは「チェック項目の結果」「イベント検出」「relations の結果」。
-- `replay.html` の yes 回答には spatial grounding の根拠枠を表示できる（`/api/vlm/analyze` の `ground_for`、分析時は yes のみ・不足はスクラブ時オンデマンド）。判定は `answers` のみで bbox は説明用。
-- `replay.html` の実行履歴は localStorage キー `videoAnalysis.replayHistory.v2` に直近 5 件を保存し、分析 `result` 全文（フレーム含む）を保持する。「表示」は `showReplay` でリプレイビューを復元する。メタデータのみのレガシー項目はサマリー alert にフォールバックする。base64 フレームが大きいため localStorage 容量超過で保存失敗しうる。
-- `draft.html` は `/api/vlm/draft` で動画フレーム（最大 8）から SOP 草案を生成する。`questions` は必須、`eventDefs` / `relations` はベストエフォート提案（UI で「要確認」）。チェック画面への受け渡しは localStorage キー `videoAnalysis.sopDraft.v1` + `/replay.html?from=draft`。草案ページでは PASS/FAIL 判定しない。
-- 草案プロンプト（`vlm_backend.build_draft_prompt`）は動作・状態・手と物の関係を優先し、「〜が置かれているか」だけの存在確認を非優先とする。良い例／悪い例を明示。複数フレーム時のみ順序が見える場合に eventDefs/relations を誘導。UI hint（`draft.html`）も同方針。存在確認の機械的フィルタはしない（プロンプト誘導のみ）。
-- 設計 spec / 実装 plan は `docs/superpowers/specs/` と `docs/superpowers/plans/` に置く。
+- Root `.gitignore` excludes Python artifacts, secrets (`.env`), macOS/editor files, `.cursor/hooks/state/`, run output (`out/`, `*.log`, `/data/`), and ML caches (`.cache/`, `models/`).
+- `small_vlm_video_analysis/.git` is nested. Before the first commit, decide whether to unify into a single repo (remove nested `.git`) or submodule it.
+- Default VLM source resolution order (when `VLM_SRC` is unset): in-project `small_vlm_video_analysis/src` → sibling `../small_vlm_video_analysis/src`.
+- Remote `origin` is `https://github.com/DaisukeKarasawa/themis.git` (repo name `themis`); default branch is `main`. Local working directory is `~/study/themis` (formerly `video-analysis`). Wrapper development proceeds on feature branches such as `feat/vlm-replay-wrapper`.
+- Demo SOP presets are only `desk_task` and `desk_cleanup_check`, embedded in `SOP_ASSETS` in `static/js/replay/presets.js`. Advanced settings use `eventDefs` and `relations` (`before` / `overlaps` / `not`).
+- `#setupPanel` order: 0. `デモの進め方` (always visible) → 1. video and analysis settings → 2. check items (with collapsed judgment rules inside: events, relations) → collapsed (`デモシナリオ`, `実行履歴`). History summary is only `実行履歴` (no count suffix).
+- `replay.html` page width is controlled by `:root` `--page-max-width` (e.g. `min(1680px, calc(100vw - 32px))`). Do not use the old fixed `1180px` cap.
+- On the replay screen, `section.left` (video, controls) is sticky; `section.right` drives vertical scroll in normal flow.
+- Relations PASS/FAIL results are shown visually at the bottom of replay `section.right` (near `チェック項目の結果` and event detection).
+- Results screen `section.right` headings are `チェック項目の結果`, `イベント検出`, and `relations の結果`.
+- `replay.html` can show spatial grounding evidence boxes for yes answers (`ground_for` from `/api/vlm/analyze`; yes only during analysis, on-demand on scrub when missing). Judgment uses `answers` only; bbox is for explanation.
+- Static assets live under `static/css` and `static/js` and are served from `/static/` by `server.py` (path traversal rejected).
+- The browser analyze UI trusts server `{answers, groundings}` and does not re-parse VLM raw text (`readAnalyzeResponse` in `static/js/replay/analysis.js`).
+- `replay.html` replay history stores the latest 5 entries in localStorage key `videoAnalysis.replayHistory.v3`, keeping the full analysis `result` (including frames). `表示` restores the replay view via `showReplay`. v2-compatible entries without `relationResults` fall back to summary alert; no silent re-judgment (backfill). Large base64 frames may cause localStorage save failures due to quota.
+- `draft.html` generates SOP drafts from video frames (max 8) via `/api/vlm/draft`. `questions` are required; `eventDefs` / `relations` are best-effort suggestions (UI shows `要確認`). Handoff to the check screen uses localStorage key `videoAnalysis.sopDraft.v1` + `/replay.html?from=draft`. The draft page does not perform PASS/FAIL judgment.
+- The draft prompt (`vlm_backend.build_draft_prompt`) prioritizes actions, states, and hand–object relationships; de-prioritizes existence-only checks like “is X placed there”. Includes good/bad examples. Suggests eventDefs/relations only when order is visible across multiple frames. UI hints in `draft.html` follow the same policy. No mechanical filter for existence checks (prompt guidance only).
+- Design specs and implementation plans live under `docs/superpowers/specs/` and `docs/superpowers/plans/`.
 
-## 参照
+## References
 
-- パイプライン詳細: `small_vlm_video_analysis/README.md`
-- 設計原則・ハマりどころ: `small_vlm_video_analysis/CLAUDE.md`
+- Pipeline details: `small_vlm_video_analysis/README.md`
+- Design principles and pitfalls: `small_vlm_video_analysis/CLAUDE.md`
