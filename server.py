@@ -135,25 +135,61 @@ def _origin_allowed(origin: str | None) -> bool:
     return any(origin == prefix or origin.startswith(f"{prefix}:") for prefix in ALLOWED_ORIGIN_PREFIXES)
 
 
+STATIC_ROOT = ROOT / "static"
 STATIC_HTML_PAGES = {
     "/": "replay.html",
     "/replay.html": "replay.html",
     "/draft.html": "draft.html",
 }
+_STATIC_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+}
 
 
 def _static_path_allowed(path: str) -> bool:
     clean = path.split("?", 1)[0]
-    return clean in STATIC_HTML_PAGES
+    if clean.rstrip("/") in STATIC_HTML_PAGES or clean in STATIC_HTML_PAGES:
+        return True
+    return clean.startswith("/static/")
 
 
 def _resolve_static_file(path: str) -> Path | None:
     clean = path.split("?", 1)[0]
-    filename = STATIC_HTML_PAGES.get(clean)
-    if not filename:
+    page_key = clean.rstrip("/") or "/"
+    filename = STATIC_HTML_PAGES.get(clean) or STATIC_HTML_PAGES.get(page_key)
+    if filename:
+        target = ROOT / filename
+        return target if target.is_file() else None
+    if not clean.startswith("/static/"):
         return None
-    target = ROOT / filename
-    return target if target.is_file() else None
+    rel = clean[len("/static/") :]
+    if not rel or ".." in Path(rel).parts:
+        return None
+    target = (STATIC_ROOT / rel).resolve()
+    try:
+        target.relative_to(STATIC_ROOT.resolve())
+    except ValueError:
+        return None
+    if target.is_file() and target.suffix in _STATIC_TYPES:
+        return target
+    return None
+
+
+def _run_vlm_job(payload: dict[str, Any], kind: str) -> tuple[dict[str, Any], str]:
+    if kind not in {"analyze", "draft"}:
+        raise ValueError(f"unknown vlm job: {kind}")
+    if VLM_UPSTREAM:
+        result = proxy_upstream(payload) if kind == "analyze" else proxy_upstream_draft(payload)
+        return result, "proxy"
+    if USE_MOCK:
+        result = mock_analyze(payload) if kind == "analyze" else mock_draft(payload)
+        return result, "mock"
+    warm_up_vlm()
+    analyzer = get_analyzer()
+    result = analyzer.analyze(payload) if kind == "analyze" else analyzer.draft(payload)
+    return result, "vlm"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -180,8 +216,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:
-        path = self.path.rstrip("/") or "/"
-        if path == "/api/status":
+        clean_path = self.path.split("?", 1)[0]
+        api_path = clean_path.rstrip("/") or "/"
+        if api_path == "/api/status":
             self._send_json(api_status())
             return
         if not _static_path_allowed(self.path):
@@ -193,7 +230,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         data = target.read_bytes()
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", _STATIC_TYPES[target.suffix])
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -281,17 +318,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            if VLM_UPSTREAM:
-                result = proxy_upstream(payload)
-                mode = "proxy"
-            elif USE_MOCK:
-                result = mock_analyze(payload)
-                mode = "mock"
-            else:
-                warm_up_vlm()
-                analyzer = get_analyzer()
-                result = analyzer.analyze(payload)
-                mode = "vlm"
+            result, mode = _run_vlm_job(payload, "analyze")
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:300]
             self._send_json_error(exc.code, f"Upstream VLM error: {detail}")
@@ -347,17 +374,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         try:
-            if VLM_UPSTREAM:
-                result = proxy_upstream_draft(payload)
-                mode = "proxy"
-            elif USE_MOCK:
-                result = mock_draft(payload)
-                mode = "mock"
-            else:
-                warm_up_vlm()
-                analyzer = get_analyzer()
-                result = analyzer.draft(payload)
-                mode = "vlm"
+            result, mode = _run_vlm_job(payload, "draft")
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:300]
             self._send_json_error(exc.code, f"Upstream draft error: {detail}")

@@ -71,6 +71,23 @@ def mock_server(monkeypatch):
         thread.join(timeout=2)
 
 
+def test_serves_static_assets_and_rejects_traversal(mock_server):
+    base, _ = mock_server
+    with urllib.request.urlopen(f"{base}/static/js/shared/html.js", timeout=5) as resp:
+        assert resp.status == 200
+        body = resp.read().decode("utf-8")
+        assert "escapeHtml" in body
+        assert resp.headers.get_content_type() in {"text/javascript", "application/javascript"}
+
+    with pytest.raises(urllib.error.HTTPError) as denied:
+        urllib.request.urlopen(f"{base}/static/../server.py", timeout=5)
+    assert denied.value.code == 404
+
+    with pytest.raises(urllib.error.HTTPError) as missing:
+        urllib.request.urlopen(f"{base}/static/js/does-not-exist.js", timeout=5)
+    assert missing.value.code == 404
+
+
 def test_serves_allowed_html_pages(mock_server):
     base, _ = mock_server
     with urllib.request.urlopen(f"{base}/replay.html", timeout=5) as resp:
